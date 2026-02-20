@@ -1,0 +1,46 @@
+{
+  "pages": [
+    {
+      "path": "pages/index",
+      "type": "home"
+    },
+    {
+      "path": "pages/message/index"
+    },
+    {
+      "path": "pages/gallery/index"
+    }
+  ],
+  "globalStyle": {
+    "backgroundColor": "@bgColor",
+    "backgroundColorBottom": "@bgColorBottom",
+    "backgroundColorTop": "@bgColorTop",
+    "backgroundTextStyle": "@bgTxtStyle",
+    "navigationBarBackgroundColor": "#6366f1",
+    "navigationBarTextStyle": "white",
+    "navigationBarTitleText": "Uni Creator",
+    "navigationStyle": "custom"
+  },
+  "tabBar": {
+    "custom": true,
+    "color": "#64748b",
+    "selectedColor": "#6366f1",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/message/index",
+        "text": "留言板"
+      },
+      {
+        "pagePath": "pages/index",
+        "text": "主页"
+      },
+      {
+        "pagePath": "pages/gallery/index",
+        "text": "画廊"
+      }
+    ]
+  },
+  "subPackages": []
+}
