@@ -13,10 +13,20 @@ interface ResponseData<T = any> {
   code: number
   message: string
   data: T
+  meta?: {
+    page: number
+    pageSize: number
+    total: number
+    totalPages: number
+  }
 }
 
 class HttpRequest {
   private config = apiConfig
+
+  private getToken(): string | null {
+    return uni.getStorageSync('token') || null
+  }
 
   request<T = any>(options: RequestOptions): Promise<ResponseData<T>> {
     const {
@@ -35,6 +45,9 @@ class HttpRequest {
       })
     }
 
+    const token = this.getToken()
+    const authHeader = token ? { Authorization: `Bearer ${token}` } : {}
+
     return new Promise((resolve, reject) => {
       uni.request({
         url: this.config.baseURL + url,
@@ -42,6 +55,8 @@ class HttpRequest {
         data,
         header: {
           ...this.config.headers,
+          'x-request-timestamp': Date.now().toString(),
+          ...authHeader,
           ...header,
         },
         timeout: this.config.timeout,
@@ -51,10 +66,11 @@ class HttpRequest {
           }
 
           const response = res.data as ResponseData<T>
-          
+
           if (response.code === 200 || response.code === 0) {
             resolve(response)
-          } else {
+          }
+          else {
             uni.showToast({
               title: response.message || '请求失败',
               icon: 'none',

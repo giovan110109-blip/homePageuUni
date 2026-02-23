@@ -13,5 +13,6 @@ declare module 'vue' {
     CustomTabBar: typeof import('./src/components/CustomTabBar.vue')['default']
     InputEntry: typeof import('./src/components/InputEntry.vue')['default']
     ThemeToggle: typeof import('./src/components/ThemeToggle.vue')['default']
+    ThumbHashImage: typeof import('./src/components/ThumbHashImage.vue')['default']
   }
 }

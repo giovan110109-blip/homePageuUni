@@ -1,18 +1,44 @@
 <script setup lang="ts">
-import { onPageScroll, onShow } from '@dcloudio/uni-app'
+import type { SiteInfo } from '@/api'
+import { onLoad, onPageScroll, onShow } from '@dcloudio/uni-app'
 import { onMounted, ref } from 'vue'
+import { siteInfoApi } from '@/api'
 import AppHeader from '@/components/AppHeader.vue'
 import CustomTabBar from '@/components/CustomTabBar.vue'
 import { useScrollStore } from '@/stores/scroll'
 import { useThemeStore } from '@/stores/theme'
+import { useUserStore } from '@/stores/user'
 
 const themeStore = useThemeStore()
 const scrollStore = useScrollStore()
+const userStore = useUserStore()
 
 const avatarLoaded = ref(false)
 const textVisible = ref(false)
+const siteInfo = ref<SiteInfo | null>(null)
+const loading = ref(true)
 
 const particles = ref<Array<{ x: number, y: number, size: number, speedX: number, speedY: number, opacity: number }>>([])
+
+async function fetchSiteInfo() {
+  try {
+    const res = await siteInfoApi.getSiteInfo()
+    siteInfo.value = res.data
+  }
+  catch (error) {
+    console.error('获取站点信息失败:', error)
+  }
+  finally {
+    loading.value = false
+  }
+}
+
+onLoad((options) => {
+  if (options?.scene) {
+    const qrToken = decodeURIComponent(options.scene)
+    uni.navigateTo({ url: `/pages/qr-auth/index?qrToken=${qrToken}` })
+  }
+})
 
 onShow(() => {
   const query = uni.createSelectorQuery()
@@ -27,7 +53,25 @@ onPageScroll((e) => {
   scrollStore.setScrolled(e.scrollTop > 10)
 })
 
+function handleAvatarClick() {
+  if (userStore.isLoggedIn) {
+    uni.showActionSheet({
+      itemList: ['退出登录'],
+      success: (res) => {
+        if (res.tapIndex === 0) {
+          userStore.logout()
+          uni.showToast({ title: '已退出登录', icon: 'success' })
+        }
+      },
+    })
+  }
+  else {
+    uni.navigateTo({ url: '/pages/login/index' })
+  }
+}
+
 onMounted(() => {
+  fetchSiteInfo()
   for (let i = 0; i < 40; i++) {
     particles.value.push({
       x: Math.random() * 100,
@@ -116,6 +160,7 @@ onMounted(() => {
         overflow-visible
         :class="avatarLoaded ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-50 translate-y-5'"
         :style="{ transition: avatarLoaded ? 'all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)' : 'none' }"
+        @click="handleAvatarClick"
       >
         <view class="avatar-ring ring-1" />
         <view class="avatar-ring ring-2" />
@@ -131,18 +176,26 @@ onMounted(() => {
           items-center
           justify-center
           :style="{
-            borderColor: themeStore.colors.primary,
+            borderColor: userStore.isLoggedIn ? themeStore.colors.success : themeStore.colors.primary,
             background: `linear-gradient(135deg, ${themeStore.colors.primary}, ${themeStore.colors.secondary})`,
             boxShadow: '0 4px 20px rgba(99, 102, 241, 0.3), 0 8px 40px rgba(139, 92, 246, 0.2), inset 0 0 15px rgba(255, 255, 255, 0.3)',
             animation: 'avatarFloat 4s ease-in-out infinite',
           }"
         >
+          <image
+            v-if="userStore.userInfo?.avatar || siteInfo?.avatar"
+            :src="userStore.userInfo?.avatar || siteInfo?.avatar"
+            w-full
+            h-full
+            mode="aspectFill"
+          />
           <text
+            v-else
             text-4xl
             text-white
             font-bold
           >
-            G
+            {{ userStore.userInfo?.nickname?.charAt(0) || siteInfo?.name?.charAt(0) || 'G' }}
           </text>
         </view>
       </view>
@@ -157,17 +210,17 @@ onMounted(() => {
         :style="{ transition: textVisible ? 'all 0.6s ease-out 0.2s' : 'none' }"
       >
         <view mb-6>
-          <text text-2xl font-semibold text-dark tracking-wide>你好，</text>
-          <text text-2xl font-bold tracking-wide :style="{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }">我是 Giovan</text>
+          <text text-2xl font-semibold text-dark tracking-wide>{{ siteInfo?.title || '你好' }}，</text>
+          <text text-2xl font-bold tracking-wide :style="{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }">我是 {{ siteInfo?.name || 'Giovan' }}</text>
         </view>
 
-        <view mb-5>
-          <text text-lg text-gray tracking-normal>一名热爱创造的</text>
-          <text text-lg font-semibold text-primary-color tracking-normal relative>开发者<view absolute bottom--0.5 left-0 right-0 h-[3px] bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] rounded-[2px] /></text>
-        </view>
+        <!-- <view mb-5>
+          <text text-lg text-gray tracking-normal>{{ siteInfo?.title || '一名热爱创造的' }}</text>
+          <text v-if="!siteInfo?.title" text-lg font-semibold text-primary-color tracking-normal relative>开发者<view absolute bottom--0.5 left-0 right-0 h-[3px] bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] rounded-[2px] /></text>
+        </view> -->
 
         <view mb-7>
-          <text text-base text-light tracking-tight>专注于构建优雅、高效的数字产品</text>
+          <text text-base text-light tracking-tight>{{ siteInfo?.bio || '专注于构建优雅、高效的数字产品' }}</text>
         </view>
 
         <view w-full mb-8>
@@ -257,28 +310,36 @@ onMounted(() => {
         </view>
 
         <view w-full mb-6 flex flex-col gap-3>
-          <view flex items-center gap-3 p-3 px-4 class="bg-white active:bg-white-80" rounded-xl border border-primary-ultra-light transition-all duration-300 active:scale-98>
+          <view v-if="siteInfo?.location" flex items-center gap-3 p-3 px-4 class="bg-white active:bg-white-80" rounded-xl border border-primary-ultra-light transition-all duration-300 active:scale-98>
             <view w-10 h-10 flex items-center justify-center bg-primary-ultra-light rounded-[10px] text-xl>
               <text>📍</text>
             </view>
             <view flex-1 flex flex-col gap-0.5>
-              <text text-sm text-dark font-medium>中国 · 北京</text>
+              <text text-sm text-dark font-medium>{{ siteInfo.location }}</text>
             </view>
           </view>
-          <view flex items-center gap-3 p-3 px-4 class="bg-white active:bg-white-80" rounded-xl border border-primary-ultra-light transition-all duration-300 active:scale-98>
+          <view v-if="siteInfo?.footerContact?.phone" flex items-center gap-3 p-3 px-4 class="bg-white active:bg-white-80" rounded-xl border border-primary-ultra-light transition-all duration-300 active:scale-98>
             <view w-10 h-10 flex items-center justify-center bg-primary-ultra-light rounded-[10px] text-xl>
               <text>📱</text>
             </view>
             <view flex-1 flex flex-col gap-0.5>
-              <text text-sm text-dark font-medium>138-xxxx-xxxx</text>
+              <text text-sm text-dark font-medium>{{ siteInfo.footerContact.phone }}</text>
             </view>
           </view>
-          <view flex items-center gap-3 p-3 px-4 class="bg-white active:bg-white-80" rounded-xl border border-primary-ultra-light transition-all duration-300 active:scale-98>
+          <view v-if="siteInfo?.email || siteInfo?.footerContact?.email" flex items-center gap-3 p-3 px-4 class="bg-white active:bg-white-80" rounded-xl border border-primary-ultra-light transition-all duration-300 active:scale-98>
             <view w-10 h-10 flex items-center justify-center bg-primary-ultra-light rounded-[10px] text-xl>
               <text>📧</text>
             </view>
             <view flex-1 flex flex-col gap-0.5>
-              <text text-sm text-dark font-medium>giovan@example.com</text>
+              <text text-sm text-dark font-medium>{{ siteInfo?.email || siteInfo?.footerContact?.email }}</text>
+            </view>
+          </view>
+          <view v-if="siteInfo?.wechat || siteInfo?.footerContact?.wechat" flex items-center gap-3 p-3 px-4 class="bg-white active:bg-white-80" rounded-xl border border-primary-ultra-light transition-all duration-300 active:scale-98>
+            <view w-10 h-10 flex items-center justify-center bg-primary-ultra-light rounded-[10px] text-xl>
+              <image src="../static/wechat.png" w-5 h-5 mode="aspectFit" />
+            </view>
+            <view flex-1 flex flex-col gap-0.5>
+              <text text-sm text-dark font-medium>{{ siteInfo?.wechat || siteInfo?.footerContact?.wechat }}</text>
             </view>
           </view>
         </view>

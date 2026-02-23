@@ -1,28 +1,143 @@
 <script setup lang="ts">
-import { onPageScroll, onShow } from '@dcloudio/uni-app'
+import type { CommentItem, MessageItem } from '@/api'
+import { onPageScroll, onReachBottom, onShow } from '@dcloudio/uni-app'
+import { onMounted, ref } from 'vue'
+import { commentApi, messageApi } from '@/api'
 import AppHeader from '@/components/AppHeader.vue'
 import CustomTabBar from '@/components/CustomTabBar.vue'
-import { useThemeStore } from '@/stores/theme'
 import { useScrollStore } from '@/stores/scroll'
+import { useThemeStore } from '@/stores/theme'
 
 const themeStore = useThemeStore()
 const scrollStore = useScrollStore()
 
-const messages = [
-  { id: 1, icon: 'i-tabler-message-2', title: '欢迎留言', desc: '分享你的想法', color: 'primary' },
-  { id: 2, icon: 'i-tabler-heart', title: '感谢支持', desc: '你的反馈对我们很重要', color: 'secondary' },
-  { id: 3, icon: 'i-tabler-star', title: '精选留言', desc: '优质内容展示', color: 'accent' },
-  { id: 4, icon: 'i-tabler-bulb', title: '功能建议', desc: '帮助我们改进产品', color: 'primary' },
-  { id: 5, icon: 'i-tabler-bug', title: '问题反馈', desc: '报告遇到的问题', color: 'secondary' },
-  { id: 6, icon: 'i-tabler-users', title: '社区交流', desc: '与其他用户互动', color: 'accent' },
-]
+const messages = ref<MessageItem[]>([])
+const commentsMap = ref<Record<string, CommentItem[]>>({})
+const loading = ref(true)
+const loadingMore = ref(false)
+const page = ref(1)
+const pageSize = 10
+const total = ref(0)
+const hasMore = ref(true)
+const expandedComments = ref<Set<string>>(new Set())
 
-function getColor(color: string) {
-  if (color === 'primary')
-    return themeStore.colors.primary
-  if (color === 'secondary')
-    return themeStore.colors.secondary
-  return themeStore.colors.accent
+function formatDate(dateStr: string): string {
+  const date = new Date(dateStr)
+  const now = new Date()
+  const diff = now.getTime() - date.getTime()
+  const days = Math.floor(diff / (24 * 60 * 60 * 1000))
+
+  if (days === 0) {
+    const hours = Math.floor(diff / (60 * 60 * 1000))
+    if (hours === 0) {
+      const minutes = Math.floor(diff / (60 * 1000))
+      return minutes <= 1 ? '刚刚' : `${minutes}分钟前`
+    }
+    return `${hours}小时前`
+  }
+  else if (days === 1) {
+    return '昨天'
+  }
+  else if (days < 7) {
+    return `${days}天前`
+  }
+  else {
+    return date.toLocaleDateString('zh-CN')
+  }
+}
+
+function formatLocation(location: MessageItem['location']): string {
+  if (!location)
+    return ''
+  const parts = [location.country, location.region, location.city].filter(Boolean)
+  return parts.length ? parts.join(' ') : ''
+}
+
+function getAvatarSrc(avatar: string | undefined): string {
+  if (!avatar)
+    return ''
+  if (avatar.startsWith('http'))
+    return avatar
+  if (avatar.startsWith('<svg')) {
+    return `data:image/svg+xml;utf8,${encodeURIComponent(avatar)}`
+  }
+  if (avatar.startsWith('data:'))
+    return avatar
+  return ''
+}
+
+function getInitial(name: string): string {
+  return name?.charAt(0)?.toUpperCase() || '?'
+}
+
+async function fetchMessages(reset = false) {
+  if (reset) {
+    loading.value = true
+    page.value = 1
+  }
+  else {
+    loadingMore.value = true
+  }
+
+  try {
+    const res = await messageApi.getMessages(page.value, pageSize, 'approved')
+    const list = res.data || []
+    const meta = res.meta || { total: 0 }
+
+    if (reset) {
+      messages.value = list
+    }
+    else {
+      messages.value = [...messages.value, ...list]
+    }
+
+    total.value = meta.total
+    hasMore.value = messages.value.length < meta.total
+
+    if (list.length > 0) {
+      page.value++
+    }
+  }
+  catch (error) {
+    console.error('获取留言失败:', error)
+    uni.showToast({ title: '加载失败', icon: 'none' })
+  }
+  finally {
+    loading.value = false
+    loadingMore.value = false
+  }
+}
+
+async function fetchComments(messageId: string) {
+  try {
+    const res = await commentApi.getComments(messageId)
+    commentsMap.value[messageId] = res.data || []
+  }
+  catch (error) {
+    console.error('获取评论失败:', error)
+  }
+}
+
+function toggleComments(messageId: string) {
+  if (expandedComments.value.has(messageId)) {
+    expandedComments.value.delete(messageId)
+  }
+  else {
+    expandedComments.value.clear()
+    expandedComments.value.add(messageId)
+    if (!commentsMap.value[messageId]) {
+      fetchComments(messageId)
+    }
+  }
+}
+
+function getComments(messageId: string): CommentItem[] {
+  return commentsMap.value[messageId] || []
+}
+
+function hasComments(messageId: string): boolean {
+  const comments = getComments(messageId)
+  return comments.length > 0
 }
 
 onShow(() => {
@@ -37,6 +152,16 @@ onShow(() => {
 onPageScroll((e) => {
   scrollStore.setScrolled(e.scrollTop > 10)
 })
+
+onMounted(() => {
+  fetchMessages(true)
+})
+
+onReachBottom(() => {
+  if (!loadingMore.value && hasMore.value) {
+    fetchMessages()
+  }
+})
 </script>
 
 <template>
@@ -44,9 +169,7 @@ onPageScroll((e) => {
     relative
     min-h-screen
     pb-20
-    :style="{
-      color: themeStore.colors.textPrimary,
-    }"
+    :style="{ color: themeStore.colors.textPrimary }"
   >
     <view
       absolute
@@ -71,59 +194,196 @@ onPageScroll((e) => {
 
     <AppHeader title="留言板" />
 
-    <view
-      relative
-      z-1
-      px-6
-      py-6
-    >
-      <view
-        v-for="msg in messages"
-        :key="msg.id"
-        mb-4
-        p-6
-        rounded-2xl
-        :style="{
-          backgroundColor: themeStore.colors.bgCard,
-          border: `1px solid ${themeStore.colors.border}`,
-        }"
-      >
+    <view relative z-1 px-4 py-4>
+      <view v-if="loading" flex flex-col items-center justify-center py-12>
+        <text text-sm :style="{ color: themeStore.colors.textTertiary }">加载中...</text>
+      </view>
+
+      <view v-else-if="messages.length === 0" flex flex-col items-center justify-center py-12>
+        <text text-base :style="{ color: themeStore.colors.textTertiary }">暂无留言</text>
+      </view>
+
+      <view v-else flex flex-col gap-4>
         <view
-          flex
-          items-center
-          gap-3
+          v-for="msg in messages"
+          :key="msg._id"
+          p-4
+          rounded-2xl
+          :style="{
+            backgroundColor: themeStore.colors.bgCard,
+            border: `1px solid ${themeStore.colors.border}`,
+          }"
         >
+          <view flex items-start gap-3>
+            <view
+              w-10
+              h-10
+              rounded-full
+              flex-center
+              overflow-hidden
+              :style="{ backgroundColor: `${themeStore.colors.primary}20` }"
+            >
+              <image
+                v-if="getAvatarSrc(msg.avatar)"
+                :src="getAvatarSrc(msg.avatar)"
+                w-full
+                h-full
+                mode="aspectFill"
+              />
+              <text
+                v-else
+                text-base
+                font-bold
+                :style="{ color: themeStore.colors.primary }"
+              >
+                {{ getInitial(msg.name) }}
+              </text>
+            </view>
+            <view flex-1>
+              <view flex items-center gap-2 mb-1>
+                <text text-base font-semibold :style="{ color: themeStore.colors.textPrimary }">
+                  {{ msg.name }}
+                </text>
+                <text text-xs :style="{ color: themeStore.colors.textTertiary }">
+                  {{ formatDate(msg.createdAt) }}
+                </text>
+              </view>
+              <text
+                block
+                text-sm
+                leading-relaxed
+                mb-2
+                :style="{ color: themeStore.colors.textSecondary }"
+              >
+                {{ msg.content }}
+              </text>
+              <view flex items-center gap-2 flex-wrap>
+                <view
+                  v-if="msg.os || msg.browser"
+                  flex
+                  items-center
+                  gap-1
+                  px-2
+                  py-0.5
+                  rounded-full
+                  :style="{ backgroundColor: themeStore.colors.bgPrimary }"
+                >
+                  <text text-xs :style="{ color: themeStore.colors.textTertiary }">
+                    {{ msg.os || '' }}{{ msg.os && msg.browser ? ' · ' : '' }}{{ msg.browser || '' }}
+                  </text>
+                </view>
+                <view
+                  v-if="msg.location && formatLocation(msg.location)"
+                  flex
+                  items-center
+                  gap-1
+                  px-2
+                  py-0.5
+                  rounded-full
+                  :style="{ backgroundColor: themeStore.colors.bgPrimary }"
+                >
+                  <text text-xs :style="{ color: themeStore.colors.textTertiary }">
+                    {{ formatLocation(msg.location) }}
+                  </text>
+                </view>
+              </view>
+            </view>
+          </view>
+
           <view
-            w-12
-            h-12
-            rounded-full
-            flex-center
-            :style="{ backgroundColor: `${getColor(msg.color)}20` }"
+            v-if="hasComments(msg._id) || expandedComments.has(msg._id)"
+            mt-3
+            pt-3
+            border-t
+            :style="{ borderColor: themeStore.colors.border }"
           >
             <view
-              :class="msg.icon"
-              text-2xl
-              :style="{ color: getColor(msg.color) }"
-            />
-          </view>
-          <view flex-1>
-            <text
-              block
-              text-base
-              font-medium
-              :style="{ color: themeStore.colors.textPrimary }"
+              flex
+              items-center
+              justify-between
+              mb-2
+              @click="toggleComments(msg._id)"
             >
-              {{ msg.title }}
-            </text>
+              <text text-xs font-medium :style="{ color: themeStore.colors.textTertiary }">
+                {{ getComments(msg._id).length }} 条回复
+              </text>
+              <text text-xs :style="{ color: themeStore.colors.primary }">
+                {{ expandedComments.has(msg._id) ? '收起' : '展开' }}
+              </text>
+            </view>
+
+            <view v-if="expandedComments.has(msg._id)" flex flex-col gap-3>
+              <view
+                v-for="comment in getComments(msg._id)"
+                :key="comment._id"
+                flex
+                items-start
+                gap-2
+                pl-2
+              >
+                <view
+                  w-6
+                  h-6
+                  rounded-full
+                  flex-center
+                  overflow-hidden
+                  :style="{ backgroundColor: `${themeStore.colors.secondary}20` }"
+                >
+                  <image
+                    v-if="getAvatarSrc(comment.avatar)"
+                    :src="getAvatarSrc(comment.avatar)"
+                    w-full
+                    h-full
+                    mode="aspectFill"
+                  />
+                  <text
+                    v-else
+                    text-xs
+                    font-bold
+                    :style="{ color: themeStore.colors.secondary }"
+                  >
+                    {{ getInitial(comment.name) }}
+                  </text>
+                </view>
+                <view flex-1>
+                  <view flex items-center gap-2>
+                    <text text-xs font-medium :style="{ color: themeStore.colors.textPrimary }">
+                      {{ comment.name }}
+                    </text>
+                    <text text-xs :style="{ color: themeStore.colors.textTertiary }">
+                      {{ formatDate(comment.createdAt) }}
+                    </text>
+                  </view>
+                  <text text-xs leading-relaxed :style="{ color: themeStore.colors.textSecondary }">
+                    {{ comment.content }}
+                  </text>
+                </view>
+              </view>
+            </view>
+          </view>
+
+          <view
+            v-else-if="!expandedComments.has(msg._id)"
+            mt-2
+            flex
+            justify-end
+          >
             <text
-              block
-              text-sm
-              mt-1
-              :style="{ color: themeStore.colors.textTertiary }"
+              text-xs
+              :style="{ color: themeStore.colors.primary }"
+              @click="toggleComments(msg._id)"
             >
-              {{ msg.desc }}
+              查看回复
             </text>
           </view>
+        </view>
+
+        <view v-if="loadingMore" flex items-center justify-center py-4>
+          <text text-sm :style="{ color: themeStore.colors.textTertiary }">加载更多...</text>
+        </view>
+
+        <view v-else-if="!hasMore && messages.length > 0" flex items-center justify-center py-4>
+          <text text-sm :style="{ color: themeStore.colors.textTertiary }">已加载全部留言</text>
         </view>
       </view>
     </view>

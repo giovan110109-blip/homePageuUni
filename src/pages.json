@@ -9,6 +9,19 @@
     },
     {
       "path": "pages/gallery/index"
+    },
+    {
+      "path": "pages/login/index"
+    },
+    {
+      "path": "pages/qr-auth/index"
+    },
+    {
+      "path": "pages/photo-viewer/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": ""
+      }
     }
   ],
   "globalStyle": {
