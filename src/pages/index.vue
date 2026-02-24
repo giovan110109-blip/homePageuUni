@@ -20,6 +20,26 @@ const loading = ref(true)
 
 const particles = ref<Array<{ x: number, y: number, size: number, speedX: number, speedY: number, opacity: number }>>([])
 
+const skillsList = [
+  { name: 'Vue', icon: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/vuejs/vuejs-original.svg' },
+  { name: 'React', icon: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/react/react-original.svg' },
+  { name: 'Node.js', icon: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/nodejs/nodejs-original.svg' },
+  { name: 'TypeScript', icon: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/typescript/typescript-original.svg' },
+  { name: 'JavaScript', icon: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/javascript/javascript-original.svg' },
+  { name: 'CSS3', icon: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/css3/css3-original.svg' },
+  { name: 'HTML5', icon: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/html5/html5-original.svg' },
+  { name: 'SCSS', icon: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/sass/sass-original.svg' },
+  { name: 'TailwindCSS', icon: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/tailwindcss/tailwindcss-original.svg' },
+  { name: 'Git', icon: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/git/git-original.svg' },
+  { name: 'Webpack', icon: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/webpack/webpack-original.svg' },
+  { name: 'Vite', icon: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/vitejs/vitejs-original.svg' },
+  { name: 'MongoDB', icon: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/mongodb/mongodb-original.svg' },
+  { name: 'MySQL', icon: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/mysql/mysql-original.svg' },
+  { name: 'Docker', icon: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/docker/docker-original.svg' },
+  { name: 'Nginx', icon: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/nginx/nginx-original.svg' },
+  { name: 'Linux', icon: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/linux/linux-original.svg' },
+]
+
 async function fetchSiteInfo() {
   try {
     const res = await siteInfoApi.getSiteInfo()
@@ -227,82 +247,21 @@ onMounted(() => {
           <view text-center mb-4>
             <text text-base font-semibold text-gray tracking-wide>技术栈</text>
           </view>
-          <view w-full overflow-hidden py-2>
-            <view flex gap-4 :style="{ animation: 'autoScroll 20s linear infinite' }">
-              <view flex flex-col items-center gap-2>
-                <image w-12 h-12 p-2 class="bg-white-80" rounded-xl transition-transform duration-300 active:scale-95 src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/vuejs/vuejs-original.svg" mode="aspectFit" />
+          <swiper
+            class="skills-swiper"
+            :autoplay="true"
+            :circular="true"
+            :interval="1"
+            :duration="3000"
+            :display-multiple-items="4"
+            easing-function="linear"
+          >
+            <swiper-item v-for="(skill, index) in skillsList" :key="index">
+              <view flex flex-col items-center gap-2 px-2>
+                <image w-12 h-12 p-2 class="bg-white-80" rounded-xl :src="skill.icon" mode="aspectFit" />
               </view>
-              <view flex flex-col items-center gap-2>
-                <image w-12 h-12 p-2 class="bg-white-80" rounded-xl transition-transform duration-300 active:scale-95 src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/react/react-original.svg" mode="aspectFit" />
-              </view>
-              <view flex flex-col items-center gap-2>
-                <image w-12 h-12 p-2 class="bg-white-80" rounded-xl transition-transform duration-300 active:scale-95 src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/nodejs/nodejs-original.svg" mode="aspectFit" />
-              </view>
-              <view flex flex-col items-center gap-2>
-                <image w-12 h-12 p-2 class="bg-white-80" rounded-xl transition-transform duration-300 active:scale-95 src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/typescript/typescript-original.svg" mode="aspectFit" />
-              </view>
-              <view flex flex-col items-center gap-2>
-                <image w-12 h-12 p-2 class="bg-white-80" rounded-xl transition-transform duration-300 active:scale-95 src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/javascript/javascript-original.svg" mode="aspectFit" />
-              </view>
-              <view flex flex-col items-center gap-2>
-                <image w-12 h-12 p-2 class="bg-white-80" rounded-xl transition-transform duration-300 active:scale-95 src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/css3/css3-original.svg" mode="aspectFit" />
-              </view>
-              <view flex flex-col items-center gap-2>
-                <image w-12 h-12 p-2 class="bg-white-80" rounded-xl transition-transform duration-300 active:scale-95 src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/html5/html5-original.svg" mode="aspectFit" />
-              </view>
-              <view flex flex-col items-center gap-2>
-                <image w-12 h-12 p-2 class="bg-white-80" rounded-xl transition-transform duration-300 active:scale-95 src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/git/git-original.svg" mode="aspectFit" />
-              </view>
-              <view flex flex-col items-center gap-2>
-                <image w-12 h-12 p-2 class="bg-white-80" rounded-xl transition-transform duration-300 active:scale-95 src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/mongodb/mongodb-original.svg" mode="aspectFit" />
-              </view>
-              <view flex flex-col items-center gap-2>
-                <image w-12 h-12 p-2 class="bg-white-80" rounded-xl transition-transform duration-300 active:scale-95 src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/mysql/mysql-original.svg" mode="aspectFit" />
-              </view>
-              <view flex flex-col items-center gap-2>
-                <image w-12 h-12 p-2 class="bg-white-80" rounded-xl transition-transform duration-300 active:scale-95 src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/python/python-original.svg" mode="aspectFit" />
-              </view>
-              <view flex flex-col items-center gap-2>
-                <image w-12 h-12 p-2 class="bg-white-80" rounded-xl transition-transform duration-300 active:scale-95 src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/docker/docker-original.svg" mode="aspectFit" />
-              </view>
-              <view flex flex-col items-center gap-2>
-                <image w-12 h-12 p-2 class="bg-white-80" rounded-xl transition-transform duration-300 active:scale-95 src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/vuejs/vuejs-original.svg" mode="aspectFit" />
-              </view>
-              <view flex flex-col items-center gap-2>
-                <image w-12 h-12 p-2 class="bg-white-80" rounded-xl transition-transform duration-300 active:scale-95 src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/react/react-original.svg" mode="aspectFit" />
-              </view>
-              <view flex flex-col items-center gap-2>
-                <image w-12 h-12 p-2 class="bg-white-80" rounded-xl transition-transform duration-300 active:scale-95 src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/nodejs/nodejs-original.svg" mode="aspectFit" />
-              </view>
-              <view flex flex-col items-center gap-2>
-                <image w-12 h-12 p-2 class="bg-white-80" rounded-xl transition-transform duration-300 active:scale-95 src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/typescript/typescript-original.svg" mode="aspectFit" />
-              </view>
-              <view flex flex-col items-center gap-2>
-                <image w-12 h-12 p-2 class="bg-white-80" rounded-xl transition-transform duration-300 active:scale-95 src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/javascript/javascript-original.svg" mode="aspectFit" />
-              </view>
-              <view flex flex-col items-center gap-2>
-                <image w-12 h-12 p-2 class="bg-white-80" rounded-xl transition-transform duration-300 active:scale-95 src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/css3/css3-original.svg" mode="aspectFit" />
-              </view>
-              <view flex flex-col items-center gap-2>
-                <image w-12 h-12 p-2 class="bg-white-80" rounded-xl transition-transform duration-300 active:scale-95 src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/html5/html5-original.svg" mode="aspectFit" />
-              </view>
-              <view flex flex-col items-center gap-2>
-                <image w-12 h-12 p-2 class="bg-white-80" rounded-xl transition-transform duration-300 active:scale-95 src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/git/git-original.svg" mode="aspectFit" />
-              </view>
-              <view flex flex-col items-center gap-2>
-                <image w-12 h-12 p-2 class="bg-white-80" rounded-xl transition-transform duration-300 active:scale-95 src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/mongodb/mongodb-original.svg" mode="aspectFit" />
-              </view>
-              <view flex flex-col items-center gap-2>
-                <image w-12 h-12 p-2 class="bg-white-80" rounded-xl transition-transform duration-300 active:scale-95 src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/mysql/mysql-original.svg" mode="aspectFit" />
-              </view>
-              <view flex flex-col items-center gap-2>
-                <image w-12 h-12 p-2 class="bg-white-80" rounded-xl transition-transform duration-300 active:scale-95 src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/python/python-original.svg" mode="aspectFit" />
-              </view>
-              <view flex flex-col items-center gap-2>
-                <image w-12 h-12 p-2 class="bg-white-80" rounded-xl transition-transform duration-300 active:scale-95 src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/docker/docker-original.svg" mode="aspectFit" />
-              </view>
-            </view>
-          </view>
+            </swiper-item>
+          </swiper>
         </view>
 
         <view p-5 px-6 mb-10px class="bg-white" rounded-[16px] border border-primary-super-light>
@@ -335,8 +294,12 @@ onMounted(() => {
             </view>
           </view>
           <view v-if="siteInfo?.wechat || siteInfo?.footerContact?.wechat" flex items-center gap-3 p-3 px-4 class="bg-white active:bg-white-80" rounded-xl border border-primary-ultra-light transition-all duration-300 active:scale-98>
-            <view w-10 h-10 flex items-center justify-center bg-primary-ultra-light rounded-[10px] text-xl>
-              <image src="../static/wechat.png" w-5 h-5 mode="aspectFit" />
+            <view w-10 h-10 flex items-center justify-center rounded-[10px] text-xl style="background-color: rgba(7, 193, 96, 0.1)">
+              <view
+                i-tabler-brand-wechat
+                text-xl
+                style="color: #07C160"
+              />
             </view>
             <view flex-1 flex flex-col gap-0.5>
               <text text-sm text-dark font-medium>{{ siteInfo?.wechat || siteInfo?.footerContact?.wechat }}</text>
@@ -396,6 +359,23 @@ onMounted(() => {
   100% {
     transform: translateX(-50%);
   }
+}
+
+.skills-scroll-container {
+  width: 100%;
+  overflow: hidden;
+  padding: 8px 0;
+}
+
+.skills-scroll {
+  display: flex;
+  gap: 16px;
+  animation: autoScroll 30s linear infinite;
+}
+
+.skills-swiper {
+  width: 100%;
+  height: 120rpx;
 }
 
 .avatar-ring {

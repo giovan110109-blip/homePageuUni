@@ -5,7 +5,8 @@ import { onMounted, ref } from 'vue'
 import { photoApi } from '@/api'
 import AppHeader from '@/components/AppHeader.vue'
 import CustomTabBar from '@/components/CustomTabBar.vue'
-import ThumbHashImage from '@/components/ThumbHashImage.vue'
+import LivePhoto from '@/components/photo/livePhoto.vue'
+import PhotoViewer from '@/components/photo/photoViewer.vue'
 import { useScrollStore } from '@/stores/scroll'
 import { useThemeStore } from '@/stores/theme'
 
@@ -87,7 +88,7 @@ async function fetchPhotos(reset = false) {
   }
 }
 
-function previewImage(photo: PhotoItem) {
+function _previewImage(photo: PhotoItem) {
   const index = photos.value.findIndex(p => p._id === photo._id)
   const photosJson = encodeURIComponent(JSON.stringify(photos.value))
   uni.navigateTo({
@@ -96,7 +97,7 @@ function previewImage(photo: PhotoItem) {
 }
 
 onShow(() => {
-  const query = uni.createSelectorQuery()
+  const query = uni.createSelectorQuery().in(null)
   query.selectViewport().scrollOffset()
   query.exec((res) => {
     const scrollTop = res[0]?.scrollTop || 0
@@ -209,30 +210,22 @@ onReachBottom(() => {
             :style="{
               backgroundColor: themeStore.colors.bgTertiary,
             }"
-            @click="previewImage(photo)"
           >
-            <ThumbHashImage
-              :src="photo.thumbnailUrl || photo.originalUrl"
-              :thumb-hash="photo.thumbnailHash"
+            <LivePhoto
+              v-if="photo.isLive"
+              :image-url="photo.originalUrl"
+              :thumbnail-url="photo.thumbnailUrl"
+              :video-url="photo.videoUrl"
+              :is-live="true"
+              :aspect-ratio="photo.aspectRatio || 1"
+              :photo-id="photo._id"
+            />
+            <PhotoViewer
+              v-else
+              :src="photo.originalUrl"
+              :thumbnail-url="photo.thumbnailUrl"
               :aspect-ratio="photo.aspectRatio || 1"
             />
-            <view
-              v-if="photo.isLive"
-              absolute
-              top-1
-              left-1
-              px-1.5
-              py-0.5
-              rounded
-              text-xs
-              z-2
-              :style="{
-                backgroundColor: 'rgba(0,0,0,0.5)',
-                color: '#fff',
-              }"
-            >
-              LIVE
-            </view>
           </view>
         </view>
 
@@ -251,30 +244,22 @@ onReachBottom(() => {
             :style="{
               backgroundColor: themeStore.colors.bgTertiary,
             }"
-            @click="previewImage(photo)"
           >
-            <ThumbHashImage
-              :src="photo.thumbnailUrl || photo.originalUrl"
-              :thumb-hash="photo.thumbnailHash"
+            <LivePhoto
+              v-if="photo.isLive"
+              :image-url="photo.originalUrl"
+              :thumbnail-url="photo.thumbnailUrl"
+              :video-url="photo.videoUrl"
+              :is-live="true"
+              :aspect-ratio="photo.aspectRatio || 1"
+              :photo-id="photo._id"
+            />
+            <PhotoViewer
+              v-else
+              :src="photo.originalUrl"
+              :thumbnail-url="photo.thumbnailUrl"
               :aspect-ratio="photo.aspectRatio || 1"
             />
-            <view
-              v-if="photo.isLive"
-              absolute
-              top-1
-              left-1
-              px-1.5
-              py-0.5
-              rounded
-              text-xs
-              z-2
-              :style="{
-                backgroundColor: 'rgba(0,0,0,0.5)',
-                color: '#fff',
-              }"
-            >
-              LIVE
-            </view>
           </view>
         </view>
       </view>

@@ -2,17 +2,16 @@
 import type { PhotoItem } from '@/api'
 import { onLoad, onPageScroll } from '@dcloudio/uni-app'
 import { computed, ref } from 'vue'
+import LivePhoto from '@/components/photo/livePhoto.vue'
 import { useThemeStore } from '@/stores/theme'
 
-const themeStore = useThemeStore()
+const _themeStore = useThemeStore()
 
 const photos = ref<PhotoItem[]>([])
 const currentIndex = ref(0)
 const showInfo = ref(false)
-const showActions = ref(false)
 const imageLoaded = ref<Set<number>>(new Set())
 const scale = ref(1)
-const lastScale = ref(1)
 
 const statusBarHeight = ref(0)
 
@@ -21,7 +20,8 @@ const currentPhoto = computed(() => photos.value[currentIndex.value])
 const progressText = computed(() => `${currentIndex.value + 1} / ${photos.value.length}`)
 
 const formattedDate = computed(() => {
-  if (!currentPhoto.value?.dateTaken) return ''
+  if (!currentPhoto.value?.dateTaken)
+    return ''
   const date = new Date(currentPhoto.value.dateTaken)
   return date.toLocaleDateString('zh-CN', {
     year: 'numeric',
@@ -32,13 +32,15 @@ const formattedDate = computed(() => {
 
 const locationText = computed(() => {
   const geo = currentPhoto.value?.geoinfo
-  if (!geo) return ''
+  if (!geo)
+    return ''
   return geo.formatted || `${geo.city || ''} ${geo.region || ''} ${geo.country || ''}`.trim()
 })
 
 const cameraInfo = computed(() => {
   const camera = currentPhoto.value?.camera
-  if (!camera) return null
+  if (!camera)
+    return null
   return {
     model: camera.model || camera.make || '',
     lens: camera.lens || '',
@@ -81,17 +83,10 @@ function handleImageLoad(index: number) {
 
 function toggleInfo() {
   showInfo.value = !showInfo.value
-  showActions.value = false
-}
-
-function toggleActions() {
-  showActions.value = !showActions.value
-  showInfo.value = false
 }
 
 function closePanels() {
   showInfo.value = false
-  showActions.value = false
 }
 
 function goBack() {
@@ -99,18 +94,19 @@ function goBack() {
 }
 
 async function handleShare() {
-  if (!currentPhoto.value) return
-  
+  if (!currentPhoto.value)
+    return
+
   try {
     const res = await uni.showActionSheet({
       itemList: ['保存图片', '分享给好友'],
     })
-    
+
     if (res.tapIndex === 0) {
       uni.showLoading({ title: '保存中...' })
       const url = currentPhoto.value.originalFileUrl || currentPhoto.value.originalUrl
       const downloadRes = await uni.downloadFile({ url })
-      
+
       if (downloadRes.statusCode === 200) {
         await uni.saveImageToPhotosAlbum({ filePath: downloadRes.tempFilePath })
         uni.showToast({ title: '保存成功', icon: 'success' })
@@ -118,9 +114,9 @@ async function handleShare() {
     }
     else if (res.tapIndex === 1) {
       uni.share({
-        type: 'image',
+        type: 0,
         imageUrl: currentPhoto.value.originalFileUrl || currentPhoto.value.originalUrl,
-      })
+      } as any)
     }
   }
   catch (error: any) {
@@ -140,15 +136,6 @@ async function handleShare() {
     uni.hideLoading()
   }
 }
-
-function handleDoubleTap() {
-  if (scale.value > 1) {
-    scale.value = 1
-  }
-  else {
-    scale.value = 2
-  }
-}
 </script>
 
 <template>
@@ -158,9 +145,20 @@ function handleDoubleTap() {
     w-full
     h-screen
     overflow-hidden
-    :style="{ backgroundColor: '#000' }"
     @tap="closePanels"
   >
+    <!-- 全屏背景 - 使用 thumbnailUrl -->
+    <image
+      v-if="currentPhoto?.thumbnailUrl"
+      :src="currentPhoto.thumbnailUrl"
+      class="bg-blur"
+      mode="aspectFill"
+    />
+    <view
+      v-else
+      class="bg-solid"
+    />
+
     <!-- 顶部导航栏 -->
     <view
       class="header"
@@ -191,7 +189,7 @@ function handleDoubleTap() {
           text-white
         />
       </view>
-      
+
       <text
         text-white
         text-sm
@@ -199,7 +197,7 @@ function handleDoubleTap() {
       >
         {{ progressText }}
       </text>
-      
+
       <view
         flex
         items-center
@@ -237,14 +235,29 @@ function handleDoubleTap() {
         items-center
         justify-center
       >
+        <!-- Live Photo -->
+        <view
+          v-if="photo.isLive"
+          class="photo-container"
+          :style="{ transform: `scale(${index === currentIndex ? scale : 1})` }"
+        >
+          <LivePhoto
+            :image-url="photo.originalFileUrl || photo.originalUrl"
+            :thumbnail-url="photo.thumbnailUrl"
+            :video-url="photo.videoUrl"
+            :is-live="true"
+            :aspect-ratio="photo.aspectRatio || 1"
+            :photo-id="photo._id"
+          />
+        </view>
+        <!-- 普通照片 -->
         <image
+          v-else
           :src="photo.originalFileUrl || photo.originalUrl"
           mode="aspectFit"
-          w-full
-          h-full
+          class="photo-image"
           :style="{ transform: `scale(${index === currentIndex ? scale : 1})` }"
           @load="handleImageLoad(index)"
-          @dblclick="handleDoubleTap"
         />
       </swiper-item>
     </swiper>
@@ -277,7 +290,7 @@ function handleDoubleTap() {
           {{ currentPhoto.title }}
         </text>
       </view>
-      
+
       <view
         v-if="currentPhoto.description"
         mb-2
@@ -290,7 +303,7 @@ function handleDoubleTap() {
           {{ currentPhoto.description }}
         </text>
       </view>
-      
+
       <view
         flex
         items-center
@@ -308,7 +321,7 @@ function handleDoubleTap() {
           <view i-tabler-calendar />
           <text>{{ formattedDate }}</text>
         </view>
-        
+
         <view
           v-if="locationText"
           flex
@@ -319,7 +332,7 @@ function handleDoubleTap() {
           <text>{{ locationText }}</text>
         </view>
       </view>
-      
+
       <!-- 标签 -->
       <view
         v-if="currentPhoto.tags?.length"
@@ -333,7 +346,7 @@ function handleDoubleTap() {
           :key="tag"
           class="px-2 py-0.5 rounded-full text-xs text-white bg-white/20"
         >
-          {{ '#' + tag }}
+          {{ `#${tag}` }}
         </text>
       </view>
     </view>
@@ -367,7 +380,7 @@ function handleDoubleTap() {
       >
         图片信息
       </text>
-      
+
       <!-- 基本信息 -->
       <view mb-4>
         <text
@@ -447,7 +460,7 @@ function handleDoubleTap() {
           </text>
         </view>
       </view>
-      
+
       <!-- 拍摄信息 -->
       <view
         v-if="cameraInfo"
@@ -529,7 +542,7 @@ function handleDoubleTap() {
           </text>
         </view>
       </view>
-      
+
       <!-- 位置信息 -->
       <view
         v-if="locationText"
@@ -598,8 +611,46 @@ function handleDoubleTap() {
   touch-action: pan-x pan-y;
 }
 
+.bg-blur {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  filter: blur(30px);
+  transform: scale(1.2);
+  opacity: 0.6;
+  z-index: 0;
+}
+
+.bg-solid {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: #000;
+  z-index: 0;
+}
+
 .swiper {
   touch-action: pan-x pan-y;
+  z-index: 1;
+}
+
+.photo-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.3s ease;
+}
+
+.photo-image {
+  width: 100%;
+  height: 100%;
+  transition: transform 0.3s ease;
 }
 
 .info-panel {

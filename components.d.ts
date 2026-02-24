@@ -12,7 +12,9 @@ declare module 'vue' {
     AppLogos: typeof import('./src/components/AppLogos.vue')['default']
     CustomTabBar: typeof import('./src/components/CustomTabBar.vue')['default']
     InputEntry: typeof import('./src/components/InputEntry.vue')['default']
+    LiveBadge: typeof import('./src/components/photo/LiveBadge.vue')['default']
+    LivePhoto: typeof import('./src/components/photo/livePhoto.vue')['default']
+    PhotoViewer: typeof import('./src/components/photo/photoViewer.vue')['default']
     ThemeToggle: typeof import('./src/components/ThemeToggle.vue')['default']
-    ThumbHashImage: typeof import('./src/components/ThumbHashImage.vue')['default']
   }
 }
