@@ -1,15 +1,17 @@
 <script setup lang="ts">
 import type { PhotoItem } from '@/api'
-import { computed, ref, watch } from 'vue'
+import { computed, getCurrentInstance, nextTick, ref, watch } from 'vue'
 
 interface Props {
   photo: PhotoItem
   logo?: string
+  qrCode?: string
   visible?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  logo: '',
+  logo: '/static/logo-dark.png',
+  qrCode: '/static/code.png',
   visible: false,
 })
 
@@ -20,8 +22,12 @@ const emit = defineEmits<{
   close: []
 }>()
 
+const instance = getCurrentInstance()
+
 const isGenerating = ref(false)
 const generatedImage = ref('')
+const canvasWidth = ref(1080)
+const canvasHeight = ref(1920)
 
 const cameraInfo = computed(() => {
   const camera = props.photo.camera
@@ -38,44 +44,205 @@ const cameraInfo = computed(() => {
 const lensInfo = computed(() => {
   const camera = props.photo.camera
   if (!camera)
-    return ''
-  const parts = []
-  if (camera.lens)
-    parts.push(camera.lens)
-  if (camera.focalLength)
-    parts.push(camera.focalLength)
-  if (camera.aperture)
-    parts.push(camera.aperture)
-  if (camera.shutterSpeed)
-    parts.push(camera.shutterSpeed)
-  if (camera.iso)
-    parts.push(`ISO ${camera.iso}`)
-  return parts.join(' | ')
+    return { focalLength: '', aperture: '', shutterSpeed: '', iso: '' }
+  return {
+    focalLength: camera.focalLength || '',
+    aperture: camera.aperture || '',
+    shutterSpeed: camera.shutterSpeed || '',
+    iso: camera.iso ? `ISO ${camera.iso}` : '',
+  }
 })
 
-const dateInfo = computed(() => {
-  if (!props.photo.dateTaken)
-    return ''
-  const date = new Date(props.photo.dateTaken)
-  return date.toLocaleDateString('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-})
+interface DownloadResult {
+  statusCode: number
+  tempFilePath: string
+}
+
+interface ImageInfoResult {
+  width: number
+  height: number
+  path: string
+}
+
+interface CanvasExportResult {
+  tempFilePath: string
+}
+
+async function generateWatermarkedImage() {
+  isGenerating.value = true
+
+  try {
+    const downloadRes = await new Promise<DownloadResult>((resolve, reject) => {
+      uni.downloadFile({
+        url: props.photo.originalFileUrl || props.photo.originalUrl,
+        success: res => resolve({ statusCode: res.statusCode, tempFilePath: res.tempFilePath }),
+        fail: err => reject(err),
+      })
+    })
+
+    if (downloadRes.statusCode !== 200) {
+      throw new Error('下载图片失败')
+    }
+
+    const tempFilePath = downloadRes.tempFilePath
+
+    const imageInfo = await new Promise<ImageInfoResult>((resolve, reject) => {
+      uni.getImageInfo({
+        src: tempFilePath,
+        success: res => resolve({ width: res.width, height: res.height, path: res.path }),
+        fail: err => reject(err),
+      })
+    })
+
+    const maxWidth = 1080
+    const ratio = imageInfo.width / imageInfo.height
+    canvasWidth.value = maxWidth
+    canvasHeight.value = Math.round(maxWidth / ratio)
+
+    const watermarkHeight = 120
+    const totalHeight = canvasHeight.value + watermarkHeight
+
+    await nextTick()
+    await new Promise(resolve => setTimeout(resolve, 100))
+
+    const query = uni.createSelectorQuery().in(instance)
+    const canvasNode = await new Promise<any>((resolve, reject) => {
+      query.select('#watermarkCanvas')
+        .fields({ node: true, size: true })
+        .exec((res) => {
+          if (res && res[0] && res[0].node) {
+            resolve(res[0])
+          }
+          else {
+            reject(new Error('获取 canvas 节点失败'))
+          }
+        })
+    })
+
+    const canvas = canvasNode.node
+    const ctx = canvas.getContext('2d')
+
+    const dpr = uni.getSystemInfoSync().pixelRatio || 2
+    canvas.width = canvasWidth.value * dpr
+    canvas.height = totalHeight * dpr
+    ctx.scale(dpr, dpr)
+
+    ctx.fillStyle = '#000000'
+    ctx.fillRect(0, 0, canvasWidth.value, totalHeight)
+
+    const img = canvas.createImage()
+    img.src = tempFilePath
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve()
+      img.onerror = () => reject(new Error('图片加载失败'))
+    })
+    ctx.drawImage(img, 0, 0, canvasWidth.value, canvasHeight.value)
+
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, canvasHeight.value, canvasWidth.value, watermarkHeight)
+
+    const logoWidth = 110
+    const logoHeight = 30
+    const qrSize = 80
+    const padding = 30
+
+    try {
+      const logoImg = canvas.createImage()
+      logoImg.src = props.logo
+      await new Promise<void>((resolve) => {
+        logoImg.onload = () => resolve()
+        logoImg.onerror = () => resolve()
+      })
+      if (logoImg.complete) {
+        ctx.drawImage(logoImg, padding, canvasHeight.value + 45, logoWidth, logoHeight)
+      }
+    }
+    catch {
+      console.error('绘制 logo 失败')
+    }
+
+    try {
+      const qrImg = canvas.createImage()
+      qrImg.src = props.qrCode
+      await new Promise<void>((resolve) => {
+        qrImg.onload = () => resolve()
+        qrImg.onerror = () => resolve()
+      })
+      if (qrImg.complete) {
+        ctx.drawImage(qrImg, canvasWidth.value - padding - qrSize, canvasHeight.value + 20, qrSize, qrSize)
+      }
+    }
+    catch {
+      console.error('绘制二维码失败')
+    }
+
+    const textX = padding + logoWidth + 20
+    const textY = canvasHeight.value + 35
+
+    ctx.fillStyle = '#333333'
+    ctx.font = '20px sans-serif'
+    ctx.textAlign = 'left'
+
+    if (cameraInfo.value) {
+      ctx.fillText(`📷 ${cameraInfo.value}`, textX, textY + 25)
+    }
+
+    const lens = lensInfo.value
+    const lensParts: string[] = []
+    if (lens.focalLength)
+      lensParts.push(`🔭 ${lens.focalLength}`)
+    if (lens.aperture)
+      lensParts.push(`🔘 ${lens.aperture}`)
+    if (lens.shutterSpeed)
+      lensParts.push(`⏱ ${lens.shutterSpeed}`)
+    if (lens.iso)
+      lensParts.push(`💡 ${lens.iso}`)
+
+    const city = props.photo.geoinfo?.city || props.photo.geoinfo?.region || ''
+    if (city) {
+      lensParts.push(`📍 ${city}`)
+    }
+
+    if (lensParts.length > 0) {
+      ctx.fillText(lensParts.join('  '), textX, textY + 60)
+    }
+
+    const res = await new Promise<CanvasExportResult>((resolve, reject) => {
+      uni.canvasToTempFilePath({
+        canvas,
+        x: 0,
+        y: 0,
+        width: canvasWidth.value,
+        height: totalHeight,
+        destWidth: canvasWidth.value * dpr,
+        destHeight: totalHeight * dpr,
+        fileType: 'jpg',
+        quality: 0.9,
+        success: r => resolve({ tempFilePath: r.tempFilePath }),
+        fail: err => reject(err),
+      } as any)
+    })
+
+    generatedImage.value = res.tempFilePath
+    emit('generated', res.tempFilePath)
+  }
+  catch (err) {
+    console.error('生成水印图片失败:', err)
+    uni.showToast({ title: '生成失败', icon: 'none' })
+  }
+  finally {
+    isGenerating.value = false
+  }
+}
 
 watch(
   () => props.visible,
   (visible) => {
     if (visible) {
-      isGenerating.value = true
-      setTimeout(() => {
-        generatedImage.value = props.photo.originalFileUrl || props.photo.originalUrl
-        emit('generated', generatedImage.value)
-        isGenerating.value = false
-      }, 500)
+      generateWatermarkedImage()
+    }
+    else {
+      generatedImage.value = ''
     }
   },
 )
@@ -84,15 +251,25 @@ function handleClose() {
   emit('close')
 }
 
-function handleSave() {
-  if (generatedImage.value) {
-    emit('save', generatedImage.value)
-  }
+async function handleSave() {
+  if (!generatedImage.value)
+    return
+  emit('save', generatedImage.value)
 }
 
-function handleShare() {
-  if (generatedImage.value) {
+async function handleShare() {
+  if (!generatedImage.value)
+    return
+
+  try {
+    await uni.share({
+      type: 0,
+      imageUrl: generatedImage.value,
+    } as any)
     emit('share', generatedImage.value)
+  }
+  catch {
+    console.error('分享取消')
   }
 }
 </script>
@@ -103,6 +280,16 @@ function handleShare() {
     class="photo-share-generator"
     @click="handleClose"
   >
+    <canvas
+      id="watermarkCanvas"
+      type="2d"
+      class="hidden-canvas"
+      :style="{
+        width: `${canvasWidth}px`,
+        height: `${canvasHeight + 120}px`,
+      }"
+    />
+
     <view
       class="generator-modal"
       @click.stop
@@ -113,7 +300,11 @@ function handleShare() {
           class="close-btn"
           @click="handleClose"
         >
-          <view i-tabler-x text-white text-xl />
+          <view
+            i-tabler-x
+            text-white
+            text-xl
+          />
         </view>
       </view>
 
@@ -122,37 +313,18 @@ function handleShare() {
         class="loading-container"
       >
         <view class="loading-spinner" />
-        <text class="loading-text">加载中...</text>
+        <text class="loading-text">正在生成水印图片...</text>
       </view>
 
       <view
-        v-else
+        v-else-if="generatedImage"
         class="preview-container"
       >
-        <view class="preview-content">
-          <image
-            v-if="generatedImage"
-            :src="generatedImage"
-            class="preview-image"
-            mode="aspectFit"
-          />
-          <view class="info-bar">
-            <view class="info-left">
-              <text v-if="props.photo.title" class="info-title">{{ props.photo.title }}</text>
-              <text v-if="cameraInfo" class="info-camera">{{ cameraInfo }}</text>
-              <text v-if="lensInfo" class="info-lens">{{ lensInfo }}</text>
-            </view>
-            <view class="info-right">
-              <text v-if="dateInfo" class="info-date">{{ dateInfo }}</text>
-              <text
-                v-if="props.photo.tags && props.photo.tags.length > 0"
-                class="info-tags"
-              >
-                {{ props.photo.tags.slice(0, 3).map(tag => `#${tag}`).join(' ') }}
-              </text>
-            </view>
-          </view>
-        </view>
+        <image
+          :src="generatedImage"
+          class="preview-image"
+          mode="widthFix"
+        />
       </view>
 
       <view
@@ -163,14 +335,22 @@ function handleShare() {
           class="action-btn save-btn"
           @click="handleSave"
         >
-          <view i-tabler-download text-white text-xl />
+          <view
+            i-tabler-download
+            text-white
+            text-xl
+          />
           <text class="action-text">保存到相册</text>
         </view>
         <view
           class="action-btn share-btn"
           @click="handleShare"
         >
-          <view i-tabler-share text-white text-xl />
+          <view
+            i-tabler-share
+            text-white
+            text-xl
+          />
           <text class="action-text">分享给好友</text>
         </view>
       </view>
@@ -192,10 +372,16 @@ function handleShare() {
   justify-content: center;
 }
 
+.hidden-canvas {
+  position: fixed;
+  left: -9999px;
+  top: -9999px;
+}
+
 .generator-modal {
   width: 90%;
   max-width: 600px;
-  max-height: 80vh;
+  max-height: 85vh;
   background: #1a1a1a;
   border-radius: 16px;
   overflow: hidden;
@@ -259,71 +445,14 @@ function handleShare() {
   display: flex;
   align-items: center;
   justify-content: center;
-  max-height: 50vh;
+  max-height: 60vh;
   overflow: hidden;
-}
-
-.preview-content {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
 }
 
 .preview-image {
   width: 100%;
   border-radius: 8px;
   background: #000;
-}
-
-.info-bar {
-  background: #1a1a1a;
-  padding: 15px;
-  border-radius: 8px;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 10px;
-}
-
-.info-left {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-
-.info-right {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  align-items: flex-end;
-}
-
-.info-title {
-  color: white;
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.info-camera {
-  color: #999;
-  font-size: 14px;
-}
-
-.info-lens {
-  color: #999;
-  font-size: 14px;
-}
-
-.info-date {
-  color: #666;
-  font-size: 12px;
-}
-
-.info-tags {
-  color: #666;
-  font-size: 12px;
 }
 
 .modal-actions {
