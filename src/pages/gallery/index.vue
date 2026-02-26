@@ -97,10 +97,9 @@ function _previewImage(photo: PhotoItem) {
 }
 
 onShow(() => {
-  const query = uni.createSelectorQuery().in(null)
-  query.selectViewport().scrollOffset()
-  query.exec((res) => {
-    const scrollTop = res[0]?.scrollTop || 0
+  const query = uni.createSelectorQuery()
+  query.selectViewport().scrollOffset((res: any) => {
+    const scrollTop = res?.scrollTop || 0
     scrollStore.setScrolled(scrollTop > 10)
   })
 })
@@ -210,6 +209,7 @@ onReachBottom(() => {
             :style="{
               backgroundColor: themeStore.colors.bgTertiary,
             }"
+            @tap="_previewImage(photo)"
           >
             <LivePhoto
               v-if="photo.isLive"
@@ -244,6 +244,7 @@ onReachBottom(() => {
             :style="{
               backgroundColor: themeStore.colors.bgTertiary,
             }"
+            @tap="_previewImage(photo)"
           >
             <LivePhoto
               v-if="photo.isLive"

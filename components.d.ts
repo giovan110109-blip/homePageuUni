@@ -14,6 +14,7 @@ declare module 'vue' {
     InputEntry: typeof import('./src/components/InputEntry.vue')['default']
     LiveBadge: typeof import('./src/components/photo/LiveBadge.vue')['default']
     LivePhoto: typeof import('./src/components/photo/livePhoto.vue')['default']
+    PhotoShareGenerator: typeof import('./src/components/photo/PhotoShareGenerator.vue')['default']
     PhotoViewer: typeof import('./src/components/photo/photoViewer.vue')['default']
     ThemeToggle: typeof import('./src/components/ThemeToggle.vue')['default']
   }

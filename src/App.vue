@@ -6,7 +6,40 @@ const themeStore = useThemeStore()
 
 onLaunch(() => {
   themeStore.initTheme()
+  checkUpdate()
 })
+
+function checkUpdate() {
+  if (uni.canIUse('getUpdateManager')) {
+    const updateManager = uni.getUpdateManager()
+
+    updateManager.onCheckForUpdate((res) => {
+      if (res.hasUpdate) {
+        console.log('[App] 发现新版本')
+      }
+    })
+
+    updateManager.onUpdateReady(() => {
+      uni.showModal({
+        title: '更新提示',
+        content: '新版本已经准备好，是否重启应用？',
+        success: (res) => {
+          if (res.confirm) {
+            updateManager.applyUpdate()
+          }
+        },
+      })
+    })
+
+    updateManager.onUpdateFailed(() => {
+      uni.showModal({
+        title: '更新失败',
+        content: '新版本下载失败，请检查网络后重试',
+        showCancel: false,
+      })
+    })
+  }
+}
 </script>
 
 <style>
