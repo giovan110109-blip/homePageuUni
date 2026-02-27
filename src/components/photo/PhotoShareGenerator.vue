@@ -26,8 +26,8 @@ const instance = getCurrentInstance()
 
 const isGenerating = ref(false)
 const generatedImage = ref('')
-const canvasWidth = ref(1080)
-const canvasHeight = ref(1920)
+const canvasWidth = ref(2160)
+const canvasHeight = ref(3840)
 
 const cameraInfo = computed(() => {
   const camera = props.photo.camera
@@ -68,6 +68,23 @@ interface CanvasExportResult {
   tempFilePath: string
 }
 
+async function drawIcon(ctx: any, canvas: any, iconPath: string, x: number, y: number, size: number) {
+  try {
+    const img = canvas.createImage()
+    img.src = iconPath
+    await new Promise<void>((resolve) => {
+      img.onload = () => resolve()
+      img.onerror = () => resolve()
+    })
+    if (img.complete) {
+      ctx.drawImage(img, x, y, size, size)
+    }
+  }
+  catch {
+    console.error('绘制图标失败:', iconPath)
+  }
+}
+
 async function generateWatermarkedImage() {
   isGenerating.value = true
 
@@ -103,12 +120,12 @@ async function generateWatermarkedImage() {
     const totalHeight = canvasHeight.value + watermarkHeight
 
     await nextTick()
-    await new Promise(resolve => setTimeout(resolve, 100))
+    await new Promise<void>(resolve => setTimeout(resolve, 100))
 
     const query = uni.createSelectorQuery().in(instance)
     const canvasNode = await new Promise<any>((resolve, reject) => {
       query.select('#watermarkCanvas')
-        .fields({ node: true, size: true })
+        .fields({ node: true, size: true }, () => {})
         .exec((res) => {
           if (res && res[0] && res[0].node) {
             resolve(res[0])
@@ -178,33 +195,47 @@ async function generateWatermarkedImage() {
 
     const textX = padding + logoWidth + 20
     const textY = canvasHeight.value + 35
+    const iconSize = 24
 
     ctx.fillStyle = '#333333'
     ctx.font = '20px sans-serif'
     ctx.textAlign = 'left'
 
     if (cameraInfo.value) {
-      ctx.fillText(`📷 ${cameraInfo.value}`, textX, textY + 25)
+      ctx.fillText(`📷 ${cameraInfo.value}`, textX, textY + 20)
     }
 
     const lens = lensInfo.value
-    const lensParts: string[] = []
-    if (lens.focalLength)
-      lensParts.push(`🔭 ${lens.focalLength}`)
-    if (lens.aperture)
-      lensParts.push(`🔘 ${lens.aperture}`)
-    if (lens.shutterSpeed)
-      lensParts.push(`⏱ ${lens.shutterSpeed}`)
-    if (lens.iso)
-      lensParts.push(`💡 ${lens.iso}`)
+    let lensX = textX
+    const lensY = textY + 55
+
+    if (lens.focalLength) {
+      await drawIcon(ctx, canvas, '/static/icons/focal-length.png', lensX, lensY - 18, iconSize)
+      ctx.fillText(lens.focalLength, lensX + iconSize + 8, lensY)
+      lensX += ctx.measureText(lens.focalLength).width + iconSize + 40
+    }
+
+    if (lens.aperture) {
+      await drawIcon(ctx, canvas, '/static/icons/aperture.png', lensX, lensY - 18, iconSize)
+      ctx.fillText(lens.aperture, lensX + iconSize + 8, lensY)
+      lensX += ctx.measureText(lens.aperture).width + iconSize + 40
+    }
+
+    if (lens.shutterSpeed) {
+      await drawIcon(ctx, canvas, '/static/icons/shutter.png', lensX, lensY - 18, iconSize)
+      ctx.fillText(lens.shutterSpeed, lensX + iconSize + 8, lensY)
+      lensX += ctx.measureText(lens.shutterSpeed).width + iconSize + 40
+    }
+
+    if (lens.iso) {
+      ctx.fillText(lens.iso, lensX + 8, lensY)
+      lensX += ctx.measureText(lens.iso).width + 40
+    }
 
     const city = props.photo.geoinfo?.city || props.photo.geoinfo?.region || ''
     if (city) {
-      lensParts.push(`📍 ${city}`)
-    }
-
-    if (lensParts.length > 0) {
-      ctx.fillText(lensParts.join('  '), textX, textY + 60)
+      await drawIcon(ctx, canvas, '/static/icons/location.png', lensX, lensY - 18, iconSize)
+      ctx.fillText(city, lensX + iconSize + 8, lensY)
     }
 
     const res = await new Promise<CanvasExportResult>((resolve, reject) => {
@@ -216,10 +247,10 @@ async function generateWatermarkedImage() {
         height: totalHeight,
         destWidth: canvasWidth.value * dpr,
         destHeight: totalHeight * dpr,
-        fileType: 'jpg',
-        quality: 0.9,
-        success: r => resolve({ tempFilePath: r.tempFilePath }),
-        fail: err => reject(err),
+        fileType: 'png',
+        quality: 1,
+        success: (r: any) => resolve({ tempFilePath: r.tempFilePath }),
+        fail: (err: any) => reject(err),
       } as any)
     })
 
@@ -255,22 +286,6 @@ async function handleSave() {
   if (!generatedImage.value)
     return
   emit('save', generatedImage.value)
-}
-
-async function handleShare() {
-  if (!generatedImage.value)
-    return
-
-  try {
-    await uni.share({
-      type: 0,
-      imageUrl: generatedImage.value,
-    } as any)
-    emit('share', generatedImage.value)
-  }
-  catch {
-    console.error('分享取消')
-  }
 }
 </script>
 
@@ -313,7 +328,7 @@ async function handleShare() {
         class="loading-container"
       >
         <view class="loading-spinner" />
-        <text class="loading-text">正在生成水印图片...</text>
+        <text class="loading-text">正在生成图片...</text>
       </view>
 
       <view
@@ -341,17 +356,6 @@ async function handleShare() {
             text-xl
           />
           <text class="action-text">保存到相册</text>
-        </view>
-        <view
-          class="action-btn share-btn"
-          @click="handleShare"
-        >
-          <view
-            i-tabler-share
-            text-white
-            text-xl
-          />
-          <text class="action-text">分享给好友</text>
         </view>
       </view>
     </view>
@@ -393,7 +397,7 @@ async function handleShare() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px;
+  padding: 10px 20px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
