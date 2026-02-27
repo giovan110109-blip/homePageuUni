@@ -5,6 +5,7 @@ import { onMounted, ref } from 'vue'
 import { commentApi, messageApi } from '@/api'
 import AppHeader from '@/components/AppHeader.vue'
 import CustomTabBar from '@/components/CustomTabBar.vue'
+import EmoteImage from '@/components/EmoteImage.vue'
 import Loading from '@/components/Loading.vue'
 import { useScrollStore } from '@/stores/scroll'
 import { useThemeStore } from '@/stores/theme'
@@ -69,6 +70,36 @@ function getAvatarSrc(avatar: string | undefined): string {
 
 function getInitial(name: string): string {
   return name?.charAt(0)?.toUpperCase() || '?'
+}
+
+function parseEmote(text: string): any[] {
+  if (!text)
+    return []
+  console.warn('解析表情包, 原始文本:', text)
+  const result: any[] = []
+  let lastIndex = 0
+  const emoteRegex = /\{\{([^}]+)\}\}/g
+  let match: RegExpExecArray | null = emoteRegex.exec(text)
+
+  while (match !== null) {
+    const textBefore = text.substring(lastIndex, match.index)
+    if (textBefore) {
+      result.push({ type: 'text', content: textBefore })
+    }
+    const emoteName = match[1]
+    const emoteUrl = `https://serve.giovan.cn/uploads/emote/${emoteName}`
+    result.push({ type: 'emote', url: emoteUrl })
+    lastIndex = match.index + match[0].length
+    match = emoteRegex.exec(text)
+  }
+
+  const textAfter = text.substring(lastIndex)
+  if (textAfter) {
+    result.push({ type: 'text', content: textAfter })
+  }
+
+  console.warn('解析结果:', result)
+  return result
 }
 
 async function fetchMessages(reset = false) {
@@ -249,15 +280,18 @@ onReachBottom(() => {
                   {{ formatDate(msg.createdAt) }}
                 </text>
               </view>
-              <text
+              <view
                 block
                 text-sm
                 leading-relaxed
                 mb-2
                 :style="{ color: themeStore.colors.textSecondary }"
               >
-                {{ msg.content }}
-              </text>
+                <template v-for="(item, index) in parseEmote(msg.content)" :key="index">
+                  <text v-if="item.type === 'text'">{{ item.content }}</text>
+                  <EmoteImage v-else-if="item.type === 'emote'" :url="item.url" />
+                </template>
+              </view>
               <view flex items-center gap-2 flex-wrap>
                 <view
                   v-if="msg.os || msg.browser"
@@ -355,9 +389,12 @@ onReachBottom(() => {
                       {{ formatDate(comment.createdAt) }}
                     </text>
                   </view>
-                  <text text-xs leading-relaxed :style="{ color: themeStore.colors.textSecondary }">
-                    {{ comment.content }}
-                  </text>
+                  <view text-xs leading-relaxed :style="{ color: themeStore.colors.textSecondary }">
+                    <template v-for="(item, index) in parseEmote(comment.content)" :key="index">
+                      <text v-if="item.type === 'text'">{{ item.content }}</text>
+                      <EmoteImage v-else-if="item.type === 'emote'" :url="item.url" />
+                    </template>
+                  </view>
                 </view>
               </view>
             </view>

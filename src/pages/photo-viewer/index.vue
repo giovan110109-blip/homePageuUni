@@ -337,12 +337,18 @@ async function saveGeneratedImage() {
   if (!generatedShareImage.value)
     return
 
+  console.warn('准备保存图片, 路径:', generatedShareImage.value)
+  
   try {
     uni.showLoading({ title: '保存中...' })
-    await uni.saveImageToPhotosAlbum({ filePath: generatedShareImage.value })
+    const result = await uni.saveImageToPhotosAlbum({ filePath: generatedShareImage.value })
+    console.warn('保存结果:', result)
     uni.showToast({ title: '保存成功', icon: 'success' })
   }
-  catch {
+  catch (err) {
+    console.error('保存图片失败:', err)
+    console.error('错误类型:', typeof err)
+    console.error('错误信息:', (err as any)?.errMsg || (err as any)?.message || JSON.stringify(err))
     uni.showToast({ title: '保存失败', icon: 'none' })
   }
   finally {
