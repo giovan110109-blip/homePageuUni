@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { PhotoItem } from '@/api'
 import { computed, getCurrentInstance, nextTick, ref, watch } from 'vue'
+import Loading from '@/components/Loading.vue'
 
 interface Props {
   photo: PhotoItem
@@ -44,12 +45,12 @@ const cameraInfo = computed(() => {
 const lensInfo = computed(() => {
   const camera = props.photo.camera
   if (!camera)
-    return { focalLength: '', aperture: '', shutterSpeed: '', iso: '' }
+    return { focalLength: '--', aperture: '--', shutterSpeed: '--', iso: '--' }
   return {
-    focalLength: camera.focalLength || '',
-    aperture: camera.aperture || '',
-    shutterSpeed: camera.shutterSpeed || '',
-    iso: camera.iso ? `ISO ${camera.iso}` : '',
+    focalLength: camera.focalLength || '--',
+    aperture: camera.aperture || '--',
+    shutterSpeed: camera.shutterSpeed || '--',
+    iso: camera.iso || '--',
   }
 })
 
@@ -202,12 +203,12 @@ async function generateWatermarkedImage() {
     ctx.textAlign = 'left'
 
     if (cameraInfo.value) {
-      ctx.fillText(`📷 ${cameraInfo.value}`, textX, textY + 20)
+      ctx.fillText(`📷 ${cameraInfo.value}`, textX, textY + 25)
     }
 
     const lens = lensInfo.value
     let lensX = textX
-    const lensY = textY + 55
+    const lensY = textY + 60
 
     if (lens.focalLength) {
       await drawIcon(ctx, canvas, '/static/icons/focal-length.png', lensX, lensY - 18, iconSize)
@@ -228,8 +229,9 @@ async function generateWatermarkedImage() {
     }
 
     if (lens.iso) {
-      ctx.fillText(lens.iso, lensX + 8, lensY)
-      lensX += ctx.measureText(lens.iso).width + 40
+      await drawIcon(ctx, canvas, '/static/icons/iso.png', lensX, lensY - 18, iconSize)
+      ctx.fillText(lens.iso, lensX + iconSize + 8, lensY)
+      lensX += ctx.measureText(lens.iso).width + iconSize + 40
     }
 
     const city = props.photo.geoinfo?.city || props.photo.geoinfo?.region || ''
@@ -327,7 +329,7 @@ async function handleSave() {
         v-if="isGenerating"
         class="loading-container"
       >
-        <view class="loading-spinner" />
+        <Loading />
         <text class="loading-text">正在生成图片...</text>
       </view>
 
@@ -430,15 +432,6 @@ async function handleSave() {
   gap: 20px;
 }
 
-.loading-spinner {
-  width: 60px;
-  height: 60px;
-  border: 4px solid rgba(255, 255, 255, 0.3);
-  border-top-color: white;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
 .loading-text {
   color: white;
   font-size: 16px;
@@ -494,11 +487,5 @@ async function handleSave() {
   color: white;
   font-size: 14px;
   font-weight: 500;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
 }
 </style>

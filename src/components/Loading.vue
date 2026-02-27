@@ -1,0 +1,135 @@
+<template>
+  <view class="loader">
+    <view class="box">
+      <view class="logo">
+        <image
+          src="/static/icon.png"
+          class="logo-img"
+          mode="aspectFit"
+        />
+      </view>
+    </view>
+    <view class="box" />
+    <view class="box" />
+    <view class="box" />
+    <view class="box" />
+  </view>
+</template>
+
+<style scoped>
+.loader {
+  --size: 100px;
+  --duration: 2s;
+  --logo-color: grey;
+  --background: linear-gradient(
+    0deg,
+    rgba(50, 50, 50, 0.2) 0%,
+    rgba(100, 100, 100, 0.2) 100%
+  );
+  width: var(--size);
+  height: var(--size);
+  position: relative;
+}
+
+.loader .box {
+  position: absolute;
+  background: rgba(100, 100, 100, 0.15);
+  background: var(--background);
+  border-radius: 50%;
+  border-top: 1px solid rgba(100, 100, 100, 1);
+  box-shadow: rgba(0, 0, 0, 0.3) 0px 10px 10px -0px;
+  animation: ripple var(--duration) infinite ease-in-out;
+}
+
+.loader .box:nth-child(1) {
+  top: 40%;
+  left: 40%;
+  right: 40%;
+  bottom: 40%;
+  z-index: 99;
+}
+
+.loader .box:nth-child(2) {
+  top: 30%;
+  left: 30%;
+  right: 30%;
+  bottom: 30%;
+  z-index: 98;
+  border-color: rgba(100, 100, 100, 0.8);
+  animation-delay: 0.2s;
+}
+
+.loader .box:nth-child(3) {
+  top: 20%;
+  left: 20%;
+  right: 20%;
+  bottom: 20%;
+  z-index: 97;
+  border-color: rgba(100, 100, 100, 0.6);
+  animation-delay: 0.4s;
+}
+
+.loader .box:nth-child(4) {
+  top: 10%;
+  left: 10%;
+  right: 10%;
+  bottom: 10%;
+  z-index: 96;
+  border-color: rgba(100, 100, 100, 0.4);
+  animation-delay: 0.6s;
+}
+
+.loader .box:nth-child(5) {
+  top: 0%;
+  left: 0%;
+  right: 0%;
+  bottom: 0%;
+  z-index: 95;
+  border-color: rgba(100, 100, 100, 0.2);
+  animation-delay: 0.8s;
+}
+
+.loader .logo {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 25%;
+}
+
+.loader .logo-img {
+  width: 50px;
+  height: 50px;
+}
+
+@keyframes ripple {
+  0% {
+    transform: scale(1);
+    box-shadow: rgba(0, 0, 0, 0.3) 0px 10px 10px -0px;
+  }
+  50% {
+    transform: scale(1.3);
+    box-shadow: rgba(0, 0, 0, 0.3) 0px 30px 20px -0px;
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: rgba(0, 0, 0, 0.3) 0px 10px 10px -0px;
+  }
+}
+
+@keyframes color-change {
+  0% {
+    fill: var(--logo-color);
+  }
+  50% {
+    fill: white;
+  }
+  100% {
+    fill: var(--logo-color);
+  }
+}
+</style>

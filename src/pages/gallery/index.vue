@@ -5,6 +5,7 @@ import { onMounted, ref } from 'vue'
 import { photoApi } from '@/api'
 import AppHeader from '@/components/AppHeader.vue'
 import CustomTabBar from '@/components/CustomTabBar.vue'
+import Loading from '@/components/Loading.vue'
 import LivePhoto from '@/components/photo/livePhoto.vue'
 import PhotoViewer from '@/components/photo/photoViewer.vue'
 import { useScrollStore } from '@/stores/scroll'
@@ -162,12 +163,7 @@ onReachBottom(() => {
         items-center
         py-20
       >
-        <view
-          i-tabler-loader-2
-          text-2xl
-          animate-spin
-          :style="{ color: themeStore.colors.textMuted }"
-        />
+        <Loading />
       </view>
 
       <view
@@ -271,12 +267,7 @@ onReachBottom(() => {
         justify-center
         py-4
       >
-        <view
-          i-tabler-loader-2
-          text-xl
-          animate-spin
-          :style="{ color: themeStore.colors.textMuted }"
-        />
+        <Loading />
       </view>
 
       <view

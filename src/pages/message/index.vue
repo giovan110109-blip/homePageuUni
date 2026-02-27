@@ -5,6 +5,7 @@ import { onMounted, ref } from 'vue'
 import { commentApi, messageApi } from '@/api'
 import AppHeader from '@/components/AppHeader.vue'
 import CustomTabBar from '@/components/CustomTabBar.vue'
+import Loading from '@/components/Loading.vue'
 import { useScrollStore } from '@/stores/scroll'
 import { useThemeStore } from '@/stores/theme'
 
@@ -142,11 +143,11 @@ function hasComments(messageId: string): boolean {
 
 onShow(() => {
   const query = uni.createSelectorQuery()
-  query.selectViewport().scrollOffset()
-  query.exec((res) => {
-    const scrollTop = res[0]?.scrollTop || 0
+  query.selectViewport().scrollOffset((res: any) => {
+    const scrollTop = res?.scrollTop || 0
     scrollStore.setScrolled(scrollTop > 10)
   })
+  query.exec()
 })
 
 onPageScroll((e) => {
@@ -196,7 +197,7 @@ onReachBottom(() => {
 
     <view relative z-1 px-4 py-4>
       <view v-if="loading" flex flex-col items-center justify-center py-12>
-        <text text-sm :style="{ color: themeStore.colors.textTertiary }">加载中...</text>
+        <Loading />
       </view>
 
       <view v-else-if="messages.length === 0" flex flex-col items-center justify-center py-12>
@@ -379,7 +380,7 @@ onReachBottom(() => {
         </view>
 
         <view v-if="loadingMore" flex items-center justify-center py-4>
-          <text text-sm :style="{ color: themeStore.colors.textTertiary }">加载更多...</text>
+          <Loading />
         </view>
 
         <view v-else-if="!hasMore && messages.length > 0" flex items-center justify-center py-4>
