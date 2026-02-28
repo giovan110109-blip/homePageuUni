@@ -79,9 +79,7 @@ async function fetchPhotos(reset = false) {
       page.value++
     }
   }
-  catch (error) {
-    console.error('获取照片失败:', error)
-    uni.showToast({ title: '加载失败', icon: 'none' })
+  catch {
   }
   finally {
     loading.value = false

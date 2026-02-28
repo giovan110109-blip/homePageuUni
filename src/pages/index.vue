@@ -2,16 +2,17 @@
 import type { SiteInfo } from '@/api'
 import { onLoad, onPageScroll, onShow } from '@dcloudio/uni-app'
 import { onMounted, ref } from 'vue'
-import { siteInfoApi } from '@/api'
 import AppHeader from '@/components/AppHeader.vue'
 import CustomTabBar from '@/components/CustomTabBar.vue'
 import { useScrollStore } from '@/stores/scroll'
+import { useSiteInfoStore } from '@/stores/siteInfo'
 import { useThemeStore } from '@/stores/theme'
 import { useUserStore } from '@/stores/user'
 
 const themeStore = useThemeStore()
 const scrollStore = useScrollStore()
 const userStore = useUserStore()
+const siteInfoStore = useSiteInfoStore()
 
 const avatarLoaded = ref(false)
 const textVisible = ref(false)
@@ -42,11 +43,10 @@ const skillsList = [
 
 async function fetchSiteInfo() {
   try {
-    const res = await siteInfoApi.getSiteInfo()
-    siteInfo.value = res.data
+    const data = await siteInfoStore.fetchSiteInfo()
+    siteInfo.value = data
   }
-  catch (error) {
-    console.error('获取站点信息失败:', error)
+  catch {
   }
   finally {
     loading.value = false
@@ -56,17 +56,17 @@ async function fetchSiteInfo() {
 onLoad((options) => {
   if (options?.scene) {
     const qrToken = decodeURIComponent(options.scene)
-    uni.navigateTo({ url: `/pages/qr-auth/index?qrToken=${qrToken}` })
+    uni.navigateTo({ url: `/subpackages/auth/qr-auth/index?qrToken=${qrToken}` })
   }
 })
 
 onShow(() => {
   const query = uni.createSelectorQuery()
-  query.selectViewport().scrollOffset()
-  query.exec((res) => {
-    const scrollTop = res[0]?.scrollTop || 0
+  query.selectViewport().scrollOffset((res: any) => {
+    const scrollTop = res?.scrollTop || 0
     scrollStore.setScrolled(scrollTop > 10)
   })
+  query.exec()
 })
 
 onPageScroll((e) => {
@@ -86,20 +86,20 @@ function handleAvatarClick() {
     })
   }
   else {
-    uni.navigateTo({ url: '/pages/login/index' })
+    uni.navigateTo({ url: '/subpackages/auth/login/index' })
   }
 }
 
 onMounted(() => {
   fetchSiteInfo()
-  for (let i = 0; i < 40; i++) {
+  for (let i = 0; i < 15; i++) {
     particles.value.push({
       x: Math.random() * 100,
       y: Math.random() * 100,
-      size: Math.random() * 3 + 1,
+      size: Math.random() * 4 + 2,
       speedX: (Math.random() - 0.5) * 0.3,
       speedY: (Math.random() - 0.5) * 0.3,
-      opacity: Math.random() * 0.4 + 0.1,
+      opacity: Math.random() * 0.5 + 0.2,
     })
   }
 
@@ -128,9 +128,9 @@ onMounted(() => {
       bottom-0
       z-0
       bg-gradient-to-br
-      from-f5f7fa
-      via-e8ecf3
-      to-dce3f0
+      from-indigo-100
+      via-purple-50
+      to-pink-100
     />
 
     <view absolute top-0 left-0 right-0 bottom-0 z-0 overflow-hidden>
@@ -139,15 +139,14 @@ onMounted(() => {
         :key="index"
         absolute
         rounded-full
+        particle-item
         :style="{
           left: `${particle.x}%`,
           top: `${particle.y}%`,
           width: `${particle.size}px`,
           height: `${particle.size}px`,
           opacity: particle.opacity,
-          animationDelay: `${index * 0.1}s`,
-          background: 'radial-gradient(circle, rgba(99, 102, 241, 0.5) 0%, rgba(139, 92, 246, 0.2) 50%, transparent 100%)',
-          animation: 'particleFloat 20s linear infinite',
+          animationDelay: `${index * 0.15}s`,
         }"
       />
     </view>
@@ -208,6 +207,7 @@ onMounted(() => {
             w-full
             h-full
             mode="aspectFill"
+            lazy-load
           />
           <text
             v-else
@@ -258,7 +258,7 @@ onMounted(() => {
           >
             <swiper-item v-for="(skill, index) in skillsList" :key="index">
               <view flex flex-col items-center gap-2 px-2>
-                <image w-12 h-12 p-2 class="bg-white-80" rounded-xl :src="skill.icon" mode="aspectFit" />
+                <image w-12 h-12 p-2 class="bg-white-80" rounded-xl :src="skill.icon" mode="aspectFit" lazy-load />
               </view>
             </swiper-item>
           </swiper>
@@ -314,6 +314,12 @@ onMounted(() => {
 </template>
 
 <style>
+.particle-item {
+  will-change: transform, opacity;
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.5) 0%, rgba(139, 92, 246, 0.2) 50%, transparent 100%);
+  animation: particleFloat 20s linear infinite;
+}
+
 @keyframes particleFloat {
   0% {
     transform: translate(0, 0) scale(1);

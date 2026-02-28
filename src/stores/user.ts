@@ -48,7 +48,6 @@ export const useUserStore = defineStore('user', () => {
         }
       }
       catch {
-        console.warn('用户拒绝授权用户信息')
       }
 
       const res = await authApi.wechatLogin(code, wechatUserInfo)
@@ -60,9 +59,7 @@ export const useUserStore = defineStore('user', () => {
 
       return true
     }
-    catch (error) {
-      console.error('微信登录失败:', error)
-      uni.showToast({ title: '登录失败', icon: 'none' })
+    catch {
       return false
     }
   }
@@ -75,8 +72,7 @@ export const useUserStore = defineStore('user', () => {
       const res = await authApi.getMe()
       setUserInfo(res.data)
     }
-    catch (error) {
-      console.error('获取用户信息失败:', error)
+    catch {
       logout()
     }
   }

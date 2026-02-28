@@ -11,12 +11,6 @@
       "path": "pages/gallery/index"
     },
     {
-      "path": "pages/login/index"
-    },
-    {
-      "path": "pages/qr-auth/index"
-    },
-    {
       "path": "pages/photo-viewer/index",
       "style": {
         "navigationStyle": "custom",
@@ -55,5 +49,23 @@
       }
     ]
   },
-  "subPackages": []
+  "subPackages": [
+    {
+      "root": "subpackages/auth",
+      "pages": [
+        {
+          "path": "login/index",
+          "style": {
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "qr-auth/index",
+          "style": {
+            "navigationStyle": "custom"
+          }
+        }
+      ]
+    }
+  ]
 }

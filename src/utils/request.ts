@@ -1,4 +1,5 @@
 import apiConfig from '@/config/api'
+import { handleError } from '@/utils/error'
 
 interface RequestOptions {
   url: string
@@ -7,6 +8,9 @@ interface RequestOptions {
   header?: Record<string, string>
   showLoading?: boolean
   loadingText?: string
+  showError?: boolean
+  retryCount?: number
+  retryDelay?: number
 }
 
 interface ResponseData<T = any> {
@@ -28,7 +32,19 @@ class HttpRequest {
     return uni.getStorageSync('token') || null
   }
 
-  request<T = any>(options: RequestOptions): Promise<ResponseData<T>> {
+  private sleep(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms))
+  }
+
+  private shouldRetry(error: any): boolean {
+    if (error?.code === 'NETWORK_ERROR') {
+      return true
+    }
+    const statusCode = error?.originalError?.statusCode || error?.statusCode
+    return statusCode >= 500 && statusCode < 600
+  }
+
+  async request<T = any>(options: RequestOptions): Promise<ResponseData<T>> {
     const {
       url,
       method = 'GET',
@@ -36,6 +52,51 @@ class HttpRequest {
       header = {},
       showLoading = false,
       loadingText = '加载中...',
+      showError = true,
+      retryCount = 3,
+      retryDelay = 1000,
+    } = options
+
+    let lastError: any = null
+
+    for (let attempt = 0; attempt <= retryCount; attempt++) {
+      if (attempt > 0) {
+        await this.sleep(retryDelay * attempt)
+      }
+
+      try {
+        const result = await this.doRequest<T>({
+          url,
+          method,
+          data,
+          header,
+          showLoading: showLoading && attempt === 0,
+          loadingText,
+          showError: showError && attempt === retryCount,
+        })
+        return result
+      }
+      catch (error) {
+        lastError = error
+
+        if (!this.shouldRetry(error) || attempt === retryCount) {
+          throw error
+        }
+      }
+    }
+
+    throw lastError
+  }
+
+  private doRequest<T = any>(options: RequestOptions): Promise<ResponseData<T>> {
+    const {
+      url,
+      method = 'GET',
+      data,
+      header = {},
+      showLoading = false,
+      loadingText = '加载中...',
+      showError = true,
     } = options
 
     if (showLoading) {
@@ -71,11 +132,11 @@ class HttpRequest {
             resolve(response)
           }
           else {
-            uni.showToast({
-              title: response.message || '请求失败',
-              icon: 'none',
-            })
-            reject(response)
+            const error = handleError(
+              { ...response, statusCode: res.statusCode },
+              showError,
+            )
+            reject(error)
           }
         },
         fail: (err: any) => {
@@ -83,11 +144,8 @@ class HttpRequest {
             uni.hideLoading()
           }
 
-          uni.showToast({
-            title: '网络请求失败',
-            icon: 'none',
-          })
-          reject(err)
+          const error = handleError(err, showError)
+          reject(error)
         },
       })
     })

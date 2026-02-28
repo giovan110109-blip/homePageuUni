@@ -23,7 +23,7 @@ async function handleWechatLogin() {
       const qrToken = uni.getStorageSync('qrToken')
       if (qrToken) {
         uni.removeStorageSync('qrToken')
-        uni.redirectTo({ url: `/pages/qr-auth/index?qrToken=${qrToken}` })
+        uni.redirectTo({ url: `/subpackages/auth/qr-auth/index?qrToken=${qrToken}` })
         return
       }
       setTimeout(() => {
@@ -77,7 +77,7 @@ async function handleBindAccount() {
     if (qrToken) {
       uni.removeStorageSync('qrToken')
       setTimeout(() => {
-        uni.redirectTo({ url: `/pages/qr-auth/index?qrToken=${qrToken}` })
+        uni.redirectTo({ url: `/subpackages/auth/qr-auth/index?qrToken=${qrToken}` })
       }, 1000)
       return
     }

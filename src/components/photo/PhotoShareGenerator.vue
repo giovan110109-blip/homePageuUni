@@ -140,7 +140,7 @@ async function generateWatermarkedImage() {
     const canvas = canvasNode.node
     const ctx = canvas.getContext('2d')
 
-    const dpr = uni.getSystemInfoSync().pixelRatio || 2
+    const dpr = uni.getSystemInfoSync().pixelRatio || 1
     canvas.width = canvasWidth.value * dpr
     canvas.height = totalHeight * dpr
     ctx.scale(dpr, dpr)

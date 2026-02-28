@@ -152,6 +152,7 @@ onUnmounted(() => {
       :src="thumbnailUrl"
       class="lazy-image-placeholder"
       mode="aspectFill"
+      lazy-load
     />
 
     <view v-else class="lazy-image-bg" />
@@ -162,6 +163,7 @@ onUnmounted(() => {
       class="lazy-image-main"
       :class="{ 'image-loaded': imageLoaded }"
       mode="aspectFill"
+      lazy-load
       @load="onImageLoad"
       @error="onImageError"
     />

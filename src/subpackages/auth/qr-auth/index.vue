@@ -24,7 +24,7 @@ async function handleScan() {
   if (!userStore.isLoggedIn) {
     loading.value = false
     uni.setStorageSync('qrToken', qrToken.value)
-    uni.redirectTo({ url: '/pages/login/index?redirect=/pages/qr-auth/index' })
+    uni.redirectTo({ url: '/subpackages/auth/login/index?redirect=/subpackages/auth/qr-auth/index' })
     return
   }
 

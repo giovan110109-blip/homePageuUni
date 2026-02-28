@@ -93,7 +93,7 @@ function getOptimizedImageUrl(photo: PhotoItem) {
   const screenWidth = systemInfo.screenWidth || 375
 
   if (screenWidth <= 375) {
-    return photo.thumbnailUrl
+    return photo.originalFileUrl
   }
   else if (screenWidth <= 768) {
     return photo.originalFileUrl
@@ -338,7 +338,7 @@ async function saveGeneratedImage() {
     return
 
   console.warn('准备保存图片, 路径:', generatedShareImage.value)
-  
+
   try {
     uni.showLoading({ title: '保存中...' })
     const result = await uni.saveImageToPhotosAlbum({ filePath: generatedShareImage.value })

@@ -72,10 +72,16 @@ function getInitial(name: string): string {
   return name?.charAt(0)?.toUpperCase() || '?'
 }
 
+const emoteCache = new Map<string, any[]>()
+
 function parseEmote(text: string): any[] {
   if (!text)
     return []
-  console.warn('解析表情包, 原始文本:', text)
+
+  if (emoteCache.has(text)) {
+    return emoteCache.get(text)!
+  }
+
   const result: any[] = []
   let lastIndex = 0
   const emoteRegex = /\{\{([^}]+)\}\}/g
@@ -98,7 +104,7 @@ function parseEmote(text: string): any[] {
     result.push({ type: 'text', content: textAfter })
   }
 
-  console.warn('解析结果:', result)
+  emoteCache.set(text, result)
   return result
 }
 
@@ -130,9 +136,7 @@ async function fetchMessages(reset = false) {
       page.value++
     }
   }
-  catch (error) {
-    console.error('获取留言失败:', error)
-    uni.showToast({ title: '加载失败', icon: 'none' })
+  catch {
   }
   finally {
     loading.value = false
@@ -145,8 +149,7 @@ async function fetchComments(messageId: string) {
     const res = await commentApi.getComments(messageId)
     commentsMap.value[messageId] = res.data || []
   }
-  catch (error) {
-    console.error('获取评论失败:', error)
+  catch {
   }
 }
 
@@ -261,6 +264,7 @@ onReachBottom(() => {
                 w-full
                 h-full
                 mode="aspectFill"
+                lazy-load
               />
               <text
                 v-else
@@ -370,6 +374,7 @@ onReachBottom(() => {
                     w-full
                     h-full
                     mode="aspectFill"
+                    lazy-load
                   />
                   <text
                     v-else
