@@ -32,6 +32,10 @@ class HttpRequest {
     return uni.getStorageSync('token') || null
   }
 
+  getBaseURL(): string {
+    return this.config.baseURL
+  }
+
   private sleep(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms))
   }

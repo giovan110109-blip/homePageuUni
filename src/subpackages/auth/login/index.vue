@@ -105,6 +105,9 @@ function goBack() {
 
 onLoad((options) => {
   redirect.value = options?.redirect || ''
+  if (options?.mode === 'bind') {
+    loginMode.value = 'bind'
+  }
 })
 </script>
 
@@ -293,7 +296,7 @@ onLoad((options) => {
                 border: `1px solid ${themeStore.colors.border}`,
                 color: themeStore.colors.textPrimary,
               }"
-            />
+            >
           </view>
 
           <view
@@ -319,7 +322,7 @@ onLoad((options) => {
                 border: `1px solid ${themeStore.colors.border}`,
                 color: themeStore.colors.textPrimary,
               }"
-            />
+            >
           </view>
 
           <view

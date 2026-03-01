@@ -126,7 +126,9 @@ async function fetchMessages(reset = false) {
       messages.value = list
     }
     else {
-      messages.value = [...messages.value, ...list]
+      const existingIds = new Set(messages.value.map(m => m._id))
+      const newList = list.filter((m: MessageItem) => !existingIds.has(m._id))
+      messages.value = [...messages.value, ...newList]
     }
 
     total.value = meta.total
@@ -168,11 +170,6 @@ function toggleComments(messageId: string) {
 
 function getComments(messageId: string): CommentItem[] {
   return commentsMap.value[messageId] || []
-}
-
-function hasComments(messageId: string): boolean {
-  const comments = getComments(messageId)
-  return comments.length > 0
 }
 
 onShow(() => {
@@ -330,7 +327,7 @@ onReachBottom(() => {
           </view>
 
           <view
-            v-if="hasComments(msg._id) || expandedComments.has(msg._id)"
+            v-if="(msg.commentCount && msg.commentCount > 0) || expandedComments.has(msg._id)"
             mt-3
             pt-3
             border-t
@@ -344,7 +341,7 @@ onReachBottom(() => {
               @click="toggleComments(msg._id)"
             >
               <text text-xs font-medium :style="{ color: themeStore.colors.textTertiary }">
-                {{ getComments(msg._id).length }} 条回复
+                {{ msg.commentCount || getComments(msg._id).length }} 条回复
               </text>
               <text text-xs :style="{ color: themeStore.colors.primary }">
                 {{ expandedComments.has(msg._id) ? '收起' : '展开' }}
@@ -403,21 +400,6 @@ onReachBottom(() => {
                 </view>
               </view>
             </view>
-          </view>
-
-          <view
-            v-else-if="!expandedComments.has(msg._id)"
-            mt-2
-            flex
-            justify-end
-          >
-            <text
-              text-xs
-              :style="{ color: themeStore.colors.primary }"
-              @click="toggleComments(msg._id)"
-            >
-              查看回复
-            </text>
           </view>
         </view>
 

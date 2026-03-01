@@ -85,15 +85,13 @@ async function preloadWebpImage() {
       return
 
     cachedImageUrl.value = result
+    isLoadingImage.value = false
+    showImage.value = true
   }
   catch {
     if (currentId !== requestId.value)
       return
     cachedImageUrl.value = webpUrl
-  }
-  finally {
-    if (currentId !== requestId.value)
-      return
     isLoadingImage.value = false
     showImage.value = true
   }

@@ -77,7 +77,7 @@ const localVideoPath = ref('')
 const isVideoDownloading = ref(false)
 const showVideo = ref(false)
 const showShareGenerator = ref(false)
-const generatedShareImage = ref('')
+const showLongPressMenu = ref(false)
 
 function formatBytes(bytes: number): string {
   if (!bytes || bytes === 0 || Number.isNaN(bytes))
@@ -215,29 +215,22 @@ function handleLongPress() {
     currentImagePath: currentImagePath.value,
   })
 
-  if (!currentPhoto.value?.isLive || !currentPhoto.value.videoUrl) {
-    console.error('[PhotoViewer] 不是 Live 照片或没有视频 URL')
-    return
-  }
+  if (currentPhoto.value?.isLive && currentPhoto.value.videoUrl && videoCanPlay.value) {
+    if (!currentImagePath.value) {
+      console.error('[PhotoViewer] 图片还未加载完成')
+      uni.showToast({ title: '图片加载中', icon: 'none' })
+      return
+    }
 
-  // 图片必须加载完成
-  if (!currentImagePath.value) {
-    console.error('[PhotoViewer] 图片还未加载完成')
-    uni.showToast({ title: '图片加载中', icon: 'none' })
-    return
+    console.error('[PhotoViewer] 开始播放视频')
+    isPlaying.value = true
+    showVideo.value = false
+    uni.vibrateShort({ success: () => {}, fail: () => {} })
   }
-
-  // 视频必须加载完成
-  if (!videoCanPlay.value) {
-    console.error('[PhotoViewer] 视频还未准备好')
-    uni.showToast({ title: '视频加载中', icon: 'none' })
-    return
+  else {
+    showLongPressMenu.value = true
+    uni.vibrateShort({ success: () => {}, fail: () => {} })
   }
-
-  console.error('[PhotoViewer] 开始播放视频')
-  isPlaying.value = true
-  showVideo.value = false
-  uni.vibrateShort({ success: () => {}, fail: () => {} })
 }
 
 function onVideoPlay() {
@@ -329,51 +322,27 @@ function handleShare() {
   showShareGenerator.value = true
 }
 
-function onShareImageGenerated(imagePath: string) {
-  generatedShareImage.value = imagePath
-}
-
-async function saveGeneratedImage() {
-  if (!generatedShareImage.value)
-    return
-
-  console.warn('准备保存图片, 路径:', generatedShareImage.value)
-
-  try {
-    uni.showLoading({ title: '保存中...' })
-    const result = await uni.saveImageToPhotosAlbum({ filePath: generatedShareImage.value })
-    console.warn('保存结果:', result)
-    uni.showToast({ title: '保存成功', icon: 'success' })
-  }
-  catch (err) {
-    console.error('保存图片失败:', err)
-    console.error('错误类型:', typeof err)
-    console.error('错误信息:', (err as any)?.errMsg || (err as any)?.message || JSON.stringify(err))
-    uni.showToast({ title: '保存失败', icon: 'none' })
-  }
-  finally {
-    uni.hideLoading()
-  }
-}
-
-async function shareGeneratedImage() {
-  if (!generatedShareImage.value)
-    return
-
-  try {
-    await uni.share({
-      type: 0,
-      imageUrl: generatedShareImage.value,
-    } as any)
-  }
-  catch {
-    console.error('分享取消')
-  }
-}
-
 function onShareGeneratorClose() {
   showShareGenerator.value = false
-  generatedShareImage.value = ''
+}
+
+async function saveCurrentImage() {
+  showLongPressMenu.value = false
+
+  const imageUrl = currentImagePath.value || currentPhoto.value?.originalFileUrl
+  if (!imageUrl) {
+    uni.showToast({ title: '图片未加载', icon: 'none' })
+    return
+  }
+
+  uni.previewImage({
+    urls: [currentPhoto.value?.originalFileUrl || imageUrl],
+    current: currentPhoto.value?.originalFileUrl || imageUrl,
+  })
+}
+
+function closeLongPressMenu() {
+  showLongPressMenu.value = false
 }
 </script>
 
@@ -719,11 +688,40 @@ function onShareGeneratorClose() {
       v-if="currentPhoto"
       :photo="currentPhoto"
       :visible="showShareGenerator"
-      @generated="onShareImageGenerated"
-      @save="saveGeneratedImage"
-      @share="shareGeneratedImage"
       @close="onShareGeneratorClose"
     />
+
+    <view
+      v-if="showLongPressMenu"
+      class="long-press-menu"
+      @click="closeLongPressMenu"
+    >
+      <view
+        class="menu-content"
+        @click.stop
+      >
+        <view
+          class="menu-item"
+          @click="saveCurrentImage"
+        >
+          <view i-tabler-zoom-in text-xl />
+          <text>查看原图</text>
+        </view>
+        <view
+          class="menu-item"
+          @click="showLongPressMenu = false; showShareGenerator = true"
+        >
+          <view i-tabler-share text-xl />
+          <text>生成分享图</text>
+        </view>
+        <view
+          class="menu-item cancel"
+          @click="closeLongPressMenu"
+        >
+          <text>取消</text>
+        </view>
+      </view>
+    </view>
   </view>
 </template>
 
@@ -840,5 +838,46 @@ function onShareGeneratorClose() {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   line-clamp: 2;
+}
+
+.long-press-menu {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 100;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.menu-content {
+  width: 100%;
+  background: #fff;
+  border-radius: 24px 24px 0 0;
+  padding-bottom: env(safe-area-inset-bottom, 20px);
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 18px 20px;
+  color: #333;
+  font-size: 16px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.menu-item:active {
+  background: #f5f5f5;
+}
+
+.menu-item.cancel {
+  margin-top: 8px;
+  border-bottom: none;
+  color: #999;
 }
 </style>

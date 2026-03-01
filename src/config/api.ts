@@ -16,11 +16,11 @@ const config: ApiConfig = {
   },
 }
 
-export const setBaseURL = (url: string) => {
+export function setBaseURL(url: string) {
   config.baseURL = url
 }
 
-export const getBaseURL = () => {
+export function getBaseURL() {
   return config.baseURL
 }
 

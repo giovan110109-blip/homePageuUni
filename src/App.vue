@@ -1,44 +1,92 @@
 <script setup lang="ts">
-import { onLaunch } from '@dcloudio/uni-app'
+import { onLaunch, onShow } from '@dcloudio/uni-app'
+import { ref } from 'vue'
 import { useThemeStore } from '@/stores/theme'
 
 const themeStore = useThemeStore()
+const showNetworkError = ref(false)
+const isOnline = ref(true)
 
 onLaunch(() => {
   themeStore.initTheme()
   checkUpdate()
+  initNetworkListener()
+})
+
+function initNetworkListener() {
+  uni.onNetworkStatusChange((res) => {
+    isOnline.value = res.isConnected
+    if (!res.isConnected) {
+      showNetworkError.value = true
+      uni.showToast({
+        title: '网络已断开',
+        icon: 'none',
+        duration: 2000,
+      })
+    }
+    else {
+      showNetworkError.value = false
+      uni.showToast({
+        title: '网络已恢复',
+        icon: 'success',
+        duration: 1500,
+      })
+    }
+  })
+
+  uni.getNetworkType({
+    success: (res) => {
+      isOnline.value = res.networkType !== 'none'
+      if (!isOnline.value) {
+        showNetworkError.value = true
+      }
+    },
+  })
+}
+
+onShow(() => {
+  uni.getNetworkType({
+    success: (res) => {
+      const wasOffline = !isOnline.value
+      isOnline.value = res.networkType !== 'none'
+      if (wasOffline && isOnline.value) {
+        uni.showToast({
+          title: '网络已恢复',
+          icon: 'success',
+          duration: 1500,
+        })
+      }
+    },
+  })
 })
 
 function checkUpdate() {
-  if (uni.canIUse('getUpdateManager')) {
-    const updateManager = uni.getUpdateManager()
-
-    updateManager.onCheckForUpdate((res) => {
-      if (res.hasUpdate) {
-        console.log('[App] 发现新版本')
-      }
+  const updateManager = uni.getUpdateManager()
+  updateManager.onCheckForUpdate((res) => {
+    if (res.hasUpdate) {
+      uni.showLoading({ title: '更新中...', mask: true })
+    }
+  })
+  updateManager.onUpdateReady(() => {
+    uni.hideLoading()
+    uni.showModal({
+      title: '更新提示',
+      content: '新版本已准备好，是否重启应用？',
+      success: (res) => {
+        if (res.confirm) {
+          updateManager.applyUpdate()
+        }
+      },
     })
-
-    updateManager.onUpdateReady(() => {
-      uni.showModal({
-        title: '更新提示',
-        content: '新版本已经准备好，是否重启应用？',
-        success: (res) => {
-          if (res.confirm) {
-            updateManager.applyUpdate()
-          }
-        },
-      })
+  })
+  updateManager.onUpdateFailed(() => {
+    uni.hideLoading()
+    uni.showModal({
+      title: '更新失败',
+      content: '新版本下载失败，请删除当前小程序后重新搜索打开',
+      showCancel: false,
     })
-
-    updateManager.onUpdateFailed(() => {
-      uni.showModal({
-        title: '更新失败',
-        content: '新版本下载失败，请检查网络后重试',
-        showCancel: false,
-      })
-    })
-  }
+  })
 }
 </script>
 

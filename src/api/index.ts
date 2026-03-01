@@ -61,6 +61,7 @@ export interface MessageItem {
   deviceType?: string
   location?: Location | null
   reactions?: Record<string, number>
+  commentCount?: number
   createdAt: string
   updatedAt: string
 }
@@ -197,5 +198,35 @@ export const authApi = {
   },
   confirmQrLogin: (qrToken: string) => {
     return http.post<{ status: string, message: string }>('/auth/confirm-qr', { qrToken })
+  },
+}
+
+export const adminPhotoApi = {
+  getPhotos: (page: number = 1, limit: number = 20) => {
+    return http.get<{ photos: PhotoItem[], pagination: { total: number, page: number, limit: number, pages: number } }>('/photos', { page, limit })
+  },
+  deletePhoto: (id: string) => {
+    return http.delete<void>(`/photos/${id}`)
+  },
+  batchDeletePhotos: (ids: string[]) => {
+    return http.post<void>('/photos/batch-delete', { ids })
+  },
+  updatePhoto: (id: string, data: { title?: string, visibility?: string }) => {
+    return http.put<PhotoItem>(`/photos/${id}`, data)
+  },
+  getAlbums: (page: number = 1, pageSize: number = 10) => {
+    return http.get<any[]>('/admin/albums', { page, pageSize })
+  },
+  deleteAlbum: (id: string) => {
+    return http.delete<void>(`/admin/albums/${id}`)
+  },
+  getTaskStats: () => {
+    return http.get<{ pending: number, processing: number, completed: number, failed: number }>('/photos/tasks/stats')
+  },
+  getFailedTasks: (page: number = 1, limit: number = 50) => {
+    return http.get<{ tasks: any[] }>('/photos/tasks/failed', { page, limit })
+  },
+  retryTask: (taskId: string) => {
+    return http.post<void>(`/photos/tasks/${taskId}/retry`)
   },
 }

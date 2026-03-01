@@ -55,7 +55,10 @@
     },
     "usingComponents": true,
     "darkmode": true,
-    "themeLocation": "theme.json"
+    "themeLocation": "theme.json",
+    "requiredPrivateInfos": [
+      "chooseImage"
+    ]
   },
   "mp-alipay": {
     "usingComponents": true

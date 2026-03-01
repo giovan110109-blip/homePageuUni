@@ -18,8 +18,6 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{
   generated: [imagePath: string]
-  save: [imagePath: string]
-  share: [imagePath: string]
   close: []
 }>()
 
@@ -92,7 +90,7 @@ async function generateWatermarkedImage() {
   try {
     const downloadRes = await new Promise<DownloadResult>((resolve, reject) => {
       uni.downloadFile({
-        url: props.photo.originalFileUrl || props.photo.originalUrl,
+        url: props.photo.originalFileUrl as any,
         success: res => resolve({ statusCode: res.statusCode, tempFilePath: res.tempFilePath }),
         fail: err => reject(err),
       })
@@ -284,10 +282,13 @@ function handleClose() {
   emit('close')
 }
 
-async function handleSave() {
+function handlePreviewImage() {
   if (!generatedImage.value)
     return
-  emit('save', generatedImage.value)
+  uni.previewImage({
+    urls: [generatedImage.value],
+    current: generatedImage.value,
+  })
 }
 </script>
 
@@ -341,24 +342,9 @@ async function handleSave() {
           :src="generatedImage"
           class="preview-image"
           mode="widthFix"
+          @longpress="handlePreviewImage"
         />
-      </view>
-
-      <view
-        v-if="!isGenerating && generatedImage"
-        class="modal-actions"
-      >
-        <view
-          class="action-btn save-btn"
-          @click="handleSave"
-        >
-          <view
-            i-tabler-download
-            text-white
-            text-xl
-          />
-          <text class="action-text">保存到相册</text>
-        </view>
+        <text class="long-press-hint">长按图片可保存到相册</text>
       </view>
     </view>
   </view>
@@ -440,6 +426,7 @@ async function handleSave() {
 .preview-container {
   padding: 20px;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   max-height: 60vh;
@@ -452,40 +439,9 @@ async function handleSave() {
   background: #000;
 }
 
-.modal-actions {
-  display: flex;
-  gap: 12px;
-  padding: 20px;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.action-btn {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 14px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.1);
-  transition: all 0.2s;
-}
-
-.action-btn:active {
-  transform: scale(0.95);
-}
-
-.save-btn {
-  background: #007aff;
-}
-
-.share-btn {
-  background: #34c759;
-}
-
-.action-text {
-  color: white;
-  font-size: 14px;
-  font-weight: 500;
+.long-press-hint {
+  margin-top: 12px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
 }
 </style>

@@ -59,7 +59,24 @@ export const useUserStore = defineStore('user', () => {
 
       return true
     }
-    catch {
+    catch (error: any) {
+      const message = error?.data?.message || error?.message || ''
+      const code = error?.data?.code || error?.code
+      if (message.includes('绑定') || message.includes('未注册') || message.includes('不存在') || code === 401) {
+        uni.showModal({
+          title: '需要绑定账号',
+          content: '您的微信还未绑定账号，请使用"绑定已有账号"功能进行绑定',
+          confirmText: '去绑定',
+          success: (modalRes) => {
+            if (modalRes.confirm) {
+              uni.navigateTo({ url: '/subpackages/auth/login/index?mode=bind' })
+            }
+          },
+        })
+      }
+      else {
+        uni.showToast({ title: message || '登录失败', icon: 'none' })
+      }
       return false
     }
   }

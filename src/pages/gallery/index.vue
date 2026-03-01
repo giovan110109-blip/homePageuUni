@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { PhotoItem } from '@/api'
-import { onPageScroll, onReachBottom, onShow } from '@dcloudio/uni-app'
+import { onReachBottom, onShareAppMessage, onShow } from '@dcloudio/uni-app'
 import { onMounted, ref } from 'vue'
 import { photoApi } from '@/api'
 import AppHeader from '@/components/AppHeader.vue'
@@ -41,7 +41,13 @@ function addToColumn(photo: PhotoItem) {
 }
 
 function distributePhotos(newPhotos: PhotoItem[]) {
-  for (const photo of newPhotos) {
+  const sortedPhotos = [...newPhotos].sort((a, b) => {
+    const dateA = a.dateTaken ? new Date(a.dateTaken).getTime() : 0
+    const dateB = b.dateTaken ? new Date(b.dateTaken).getTime() : 0
+    return dateB - dateA
+  })
+
+  for (const photo of sortedPhotos) {
     addToColumn(photo)
   }
 }
@@ -103,10 +109,6 @@ onShow(() => {
   })
 })
 
-onPageScroll((e) => {
-  scrollStore.setScrolled(e.scrollTop > 10)
-})
-
 onMounted(() => {
   fetchPhotos(true)
 })
@@ -114,6 +116,14 @@ onMounted(() => {
 onReachBottom(() => {
   if (!loadingMore.value && hasMore.value) {
     fetchPhotos()
+  }
+})
+
+onShareAppMessage(() => {
+  return {
+    title: '画廊 - 精选作品展示',
+    path: '/pages/gallery/index',
+    imageUrl: photos.value[0]?.thumbnailUrl || '',
   }
 })
 </script>

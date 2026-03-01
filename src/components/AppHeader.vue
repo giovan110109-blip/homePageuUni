@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import { onPageScroll } from '@dcloudio/uni-app'
 import { onMounted, ref } from 'vue'
-import ThemeToggle from '@/components/ThemeToggle.vue'
-import { useScrollStore } from '@/stores/scroll'
 import { useThemeStore } from '@/stores/theme'
 
 defineProps<{
@@ -10,13 +8,17 @@ defineProps<{
 }>()
 
 const themeStore = useThemeStore()
-const scrollStore = useScrollStore()
 
 const statusBarHeight = ref(0)
+const isScrolled = ref(false)
 
 onMounted(() => {
   const systemInfo = uni.getSystemInfoSync()
   statusBarHeight.value = systemInfo.statusBarHeight || 0
+})
+
+onPageScroll((e) => {
+  isScrolled.value = e.scrollTop > 10
 })
 </script>
 
@@ -33,7 +35,7 @@ onMounted(() => {
     rounded-br-[15px]
     :style="{
       height: `${statusBarHeight + 48}px`,
-      backgroundColor: scrollStore.isScrolled ? themeStore.colors.bgPrimary : 'transparent',
+      backgroundColor: isScrolled ? themeStore.colors.bgPrimary : 'transparent',
     }"
   >
     <view
@@ -51,8 +53,8 @@ onMounted(() => {
       rounded-bl-[15px]
       rounded-br-[15px]
       :style="{
-        backgroundColor: scrollStore.isScrolled ? themeStore.colors.bgCard : 'transparent',
-        boxShadow: scrollStore.isScrolled ? `0 2px 12px ${themeStore.colors.primary}15` : 'none',
+        backgroundColor: isScrolled ? themeStore.colors.bgCard : 'transparent',
+        boxShadow: isScrolled ? `0 2px 12px ${themeStore.colors.primary}15` : 'none',
         paddingTop: `${statusBarHeight}px`,
       }"
     >
@@ -76,8 +78,6 @@ onMounted(() => {
           />
         </view>
       </view>
-
-      <!-- <ThemeToggle />  -->
     </view>
   </view>
 </template>

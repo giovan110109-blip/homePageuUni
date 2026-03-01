@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { SiteInfo } from '@/api'
-import { onLoad, onPageScroll, onShow } from '@dcloudio/uni-app'
+import { onLoad, onPageScroll, onShareAppMessage, onShow } from '@dcloudio/uni-app'
 import { onMounted, ref } from 'vue'
 import AppHeader from '@/components/AppHeader.vue'
 import CustomTabBar from '@/components/CustomTabBar.vue'
@@ -75,19 +75,20 @@ onPageScroll((e) => {
 
 function handleAvatarClick() {
   if (userStore.isLoggedIn) {
-    uni.showActionSheet({
-      itemList: ['退出登录'],
-      success: (res) => {
-        if (res.tapIndex === 0) {
-          userStore.logout()
-          uni.showToast({ title: '已退出登录', icon: 'success' })
-        }
-      },
-    })
+    uni.navigateTo({ url: '/pages/admin/index' })
   }
   else {
     uni.navigateTo({ url: '/subpackages/auth/login/index' })
   }
+}
+
+function copyToClipboard(text: string, label: string) {
+  uni.setClipboardData({
+    data: text,
+    success: () => {
+      uni.showToast({ title: `${label}已复制`, icon: 'success' })
+    },
+  })
 }
 
 onMounted(() => {
@@ -109,6 +110,14 @@ onMounted(() => {
   setTimeout(() => {
     textVisible.value = true
   }, 600)
+})
+
+onShareAppMessage(() => {
+  return {
+    title: siteInfo.value?.title || '个人主页',
+    path: '/pages/index',
+    imageUrl: siteInfo.value?.avatar || '',
+  }
 })
 </script>
 
@@ -277,7 +286,7 @@ onMounted(() => {
               <text text-sm text-dark font-medium>{{ siteInfo.location }}</text>
             </view>
           </view>
-          <view v-if="siteInfo?.footerContact?.phone" flex items-center gap-3 p-3 px-4 class="bg-white active:bg-white-80" rounded-xl border border-primary-ultra-light transition-all duration-300 active:scale-98>
+          <view v-if="siteInfo?.footerContact?.phone" flex items-center gap-3 p-3 px-4 class="bg-white active:bg-white-80" rounded-xl border border-primary-ultra-light transition-all duration-300 active:scale-98 @click="copyToClipboard(siteInfo.footerContact.phone, '电话')">
             <view w-10 h-10 flex items-center justify-center bg-primary-ultra-light rounded-[10px] text-xl>
               <text>📱</text>
             </view>
@@ -285,7 +294,7 @@ onMounted(() => {
               <text text-sm text-dark font-medium>{{ siteInfo.footerContact.phone }}</text>
             </view>
           </view>
-          <view v-if="siteInfo?.email || siteInfo?.footerContact?.email" flex items-center gap-3 p-3 px-4 class="bg-white active:bg-white-80" rounded-xl border border-primary-ultra-light transition-all duration-300 active:scale-98>
+          <view v-if="siteInfo?.email || siteInfo?.footerContact?.email" flex items-center gap-3 p-3 px-4 class="bg-white active:bg-white-80" rounded-xl border border-primary-ultra-light transition-all duration-300 active:scale-98 @click="copyToClipboard(siteInfo?.email || siteInfo?.footerContact?.email, '邮箱')">
             <view w-10 h-10 flex items-center justify-center bg-primary-ultra-light rounded-[10px] text-xl>
               <text>📧</text>
             </view>
@@ -293,7 +302,7 @@ onMounted(() => {
               <text text-sm text-dark font-medium>{{ siteInfo?.email || siteInfo?.footerContact?.email }}</text>
             </view>
           </view>
-          <view v-if="siteInfo?.wechat || siteInfo?.footerContact?.wechat" flex items-center gap-3 p-3 px-4 class="bg-white active:bg-white-80" rounded-xl border border-primary-ultra-light transition-all duration-300 active:scale-98>
+          <view v-if="siteInfo?.wechat || siteInfo?.footerContact?.wechat" flex items-center gap-3 p-3 px-4 class="bg-white active:bg-white-80" rounded-xl border border-primary-ultra-light transition-all duration-300 active:scale-98 @click="copyToClipboard(siteInfo?.wechat || siteInfo?.footerContact?.wechat, '微信号')">
             <view w-10 h-10 flex items-center justify-center rounded-[10px] text-xl style="background-color: rgba(7, 193, 96, 0.1)">
               <view
                 i-tabler-brand-wechat
