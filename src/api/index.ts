@@ -139,12 +139,17 @@ export interface PhotoItem {
   updatedAt: string
 }
 
+export interface UserRole {
+  _id: string
+  name: string
+  code: string
+}
+
 export interface UserInfo {
   _id: string
   nickname?: string
   avatar?: string
-  role?: 'admin' | 'user'
-  roleIds?: string[]
+  roles?: UserRole[]
   wechatNickname?: string
   wechatAvatar?: string
 }

@@ -17,6 +17,8 @@ const {
   uploadingFiles,
 } = storeToRefs(uploadQueueStore)
 
+const { isAdmin } = storeToRefs(userStore)
+
 const maxRetryCount = uploadQueueStore.MAX_RETRY_COUNT
 
 const activeTab = ref<'upload' | 'photos'>('upload')
@@ -33,17 +35,8 @@ const selectedPhotos = ref<any[]>([])
 
 const mobileUploadProgress = ref(0)
 
-function isAdmin(): boolean {
-  const user = userStore.userInfo
-  if (!user) return false
-  // 支持 role 字段或 roleIds 字段
-  if (user.role === 'admin') return true
-  if (user.roleIds && user.roleIds.length > 0) return true
-  return false
-}
-
 onLoad(() => {
-  if (!userStore.isLoggedIn || !isAdmin()) {
+  if (!userStore.isLoggedIn || !isAdmin.value) {
     uni.showToast({ title: '无权访问', icon: 'none' })
     uni.redirectTo({ url: '/pages/index' })
   }

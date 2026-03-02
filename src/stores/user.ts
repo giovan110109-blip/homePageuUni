@@ -9,6 +9,12 @@ export const useUserStore = defineStore('user', () => {
 
   const isLoggedIn = computed(() => !!token.value && !!userInfo.value)
 
+  const isAdmin = computed(() => {
+    if (!userInfo.value?.roles)
+      return false
+    return userInfo.value.roles.some(role => role.code === 'admin')
+  })
+
   function setToken(newToken: string) {
     token.value = newToken
     uni.setStorageSync('token', newToken)
@@ -62,11 +68,13 @@ export const useUserStore = defineStore('user', () => {
     catch (error: any) {
       const message = error?.data?.message || error?.message || ''
       const code = error?.data?.code || error?.code
-      if (message.includes('绑定') || message.includes('未注册') || message.includes('不存在') || code === 401) {
+      if (message.includes('绑定') || message.includes('未注册') || message.includes('不存在') || code === 400 || code === 401) {
+        logout()
         uni.showModal({
           title: '需要绑定账号',
           content: '您的微信还未绑定账号，请使用"绑定已有账号"功能进行绑定',
           confirmText: '去绑定',
+          showCancel: false,
           success: (modalRes) => {
             if (modalRes.confirm) {
               uni.navigateTo({ url: '/subpackages/auth/login/index?mode=bind' })
@@ -110,6 +118,7 @@ export const useUserStore = defineStore('user', () => {
     token,
     userInfo,
     isLoggedIn,
+    isAdmin,
     setToken,
     setUserInfo,
     wechatLogin,

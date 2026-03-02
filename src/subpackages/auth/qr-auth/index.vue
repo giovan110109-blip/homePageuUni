@@ -188,7 +188,7 @@ onLoad((options) => {
               text-xs
               :style="{ color: themeStore.colors.textTertiary }"
             >
-              {{ userStore.userInfo?.role === 'admin' ? '管理员' : '普通用户' }}
+              {{ userStore.userInfo?.roles?.some(r => r.code === 'admin') ? '管理员' : '普通用户' }}
             </text>
           </view>
         </view>
