@@ -143,7 +143,8 @@ export interface UserInfo {
   _id: string
   nickname?: string
   avatar?: string
-  role: 'admin' | 'user'
+  role?: 'admin' | 'user'
+  roleIds?: string[]
   wechatNickname?: string
   wechatAvatar?: string
 }

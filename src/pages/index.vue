@@ -211,8 +211,8 @@ onShareAppMessage(() => {
           }"
         >
           <image
-            v-if="userStore.userInfo?.avatar || siteInfo?.avatar"
-            :src="userStore.userInfo?.avatar || siteInfo?.avatar"
+            v-if="siteInfo?.avatar"
+            :src="siteInfo?.avatar"
             w-full
             h-full
             mode="aspectFill"
@@ -224,7 +224,7 @@ onShareAppMessage(() => {
             text-white
             font-bold
           >
-            {{ userStore.userInfo?.nickname?.charAt(0) || siteInfo?.name?.charAt(0) || 'G' }}
+            {{ siteInfo?.name?.charAt(0) || 'G' }}
           </text>
         </view>
       </view>

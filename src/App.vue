@@ -2,13 +2,16 @@
 import { onLaunch, onShow } from '@dcloudio/uni-app'
 import { ref } from 'vue'
 import { useThemeStore } from '@/stores/theme'
+import { useUserStore } from '@/stores/user'
 
 const themeStore = useThemeStore()
+const userStore = useUserStore()
 const showNetworkError = ref(false)
 const isOnline = ref(true)
 
 onLaunch(() => {
   themeStore.initTheme()
+  userStore.init()
   checkUpdate()
   initNetworkListener()
 })
