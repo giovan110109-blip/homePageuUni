@@ -8,12 +8,23 @@ const themeStore = useThemeStore()
 const userStore = useUserStore()
 const showNetworkError = ref(false)
 const isOnline = ref(true)
+let lastScene = ''
 
-onLaunch(async () => {
+function handleQrCodeScene(query: Record<string, any> = {}) {
+  const scene = query?.scene
+  if (scene && scene !== lastScene) {
+    lastScene = scene
+    const qrToken = decodeURIComponent(scene)
+    uni.navigateTo({ url: `/subpackages/auth/qr-auth/index?qrToken=${qrToken}` })
+  }
+}
+
+onLaunch(async (options) => {
   themeStore.initTheme()
   await userStore.init()
   checkUpdate()
   initNetworkListener()
+  handleQrCodeScene(options?.query)
 })
 
 function initNetworkListener() {
@@ -47,7 +58,7 @@ function initNetworkListener() {
   })
 }
 
-onShow(() => {
+onShow((options) => {
   uni.getNetworkType({
     success: (res) => {
       const wasOffline = !isOnline.value
@@ -61,6 +72,7 @@ onShow(() => {
       }
     },
   })
+  handleQrCodeScene(options?.query)
 })
 
 function checkUpdate() {

@@ -28,30 +28,6 @@ const generatedImage = ref('')
 const canvasWidth = ref(2160)
 const canvasHeight = ref(3840)
 
-const cameraInfo = computed(() => {
-  const camera = props.photo.camera
-  if (!camera)
-    return ''
-  const parts = []
-  if (camera.make)
-    parts.push(camera.make)
-  if (camera.model)
-    parts.push(camera.model)
-  return parts.join(' ')
-})
-
-const lensInfo = computed(() => {
-  const camera = props.photo.camera
-  if (!camera)
-    return { focalLength: '--', aperture: '--', shutterSpeed: '--', iso: '--' }
-  return {
-    focalLength: camera.focalLength || '--',
-    aperture: camera.aperture || '--',
-    shutterSpeed: camera.shutterSpeed || '--',
-    iso: camera.iso || '--',
-  }
-})
-
 interface DownloadResult {
   statusCode: number
   tempFilePath: string
@@ -65,23 +41,6 @@ interface ImageInfoResult {
 
 interface CanvasExportResult {
   tempFilePath: string
-}
-
-async function drawIcon(ctx: any, canvas: any, iconPath: string, x: number, y: number, size: number) {
-  try {
-    const img = canvas.createImage()
-    img.src = iconPath
-    await new Promise<void>((resolve) => {
-      img.onload = () => resolve()
-      img.onerror = () => resolve()
-    })
-    if (img.complete) {
-      ctx.drawImage(img, x, y, size, size)
-    }
-  }
-  catch {
-    console.error('绘制图标失败:', iconPath)
-  }
 }
 
 async function generateWatermarkedImage() {
@@ -115,7 +74,8 @@ async function generateWatermarkedImage() {
     canvasWidth.value = maxWidth
     canvasHeight.value = Math.round(maxWidth / ratio)
 
-    const watermarkHeight = 120
+    // 底部水印区域高度
+    const watermarkHeight = 100
     const totalHeight = canvasHeight.value + watermarkHeight
 
     await nextTick()
@@ -143,8 +103,8 @@ async function generateWatermarkedImage() {
     canvas.height = totalHeight * dpr
     ctx.scale(dpr, dpr)
 
-    ctx.fillStyle = '#000000'
-    ctx.fillRect(0, 0, canvasWidth.value, totalHeight)
+    // 透明背景
+    ctx.clearRect(0, 0, canvasWidth.value, totalHeight)
 
     const img = canvas.createImage()
     img.src = tempFilePath
@@ -154,14 +114,44 @@ async function generateWatermarkedImage() {
     })
     ctx.drawImage(img, 0, 0, canvasWidth.value, canvasHeight.value)
 
+    // 绘制白色背景
     ctx.fillStyle = '#ffffff'
     ctx.fillRect(0, canvasHeight.value, canvasWidth.value, watermarkHeight)
 
-    const logoWidth = 110
-    const logoHeight = 30
+    // 尺寸设置：左侧小，中间和右侧大
+    const leftLogoHeight = 50
+    const centerLogoHeight = 80
     const qrSize = 80
     const padding = 30
 
+    // 辅助函数：计算等比例缩放后的尺寸
+    function calculateLogoSize(imgWidth: number, imgHeight: number, maxHeight: number) {
+      const ratio = imgWidth / imgHeight
+      const height = maxHeight
+      const width = height * ratio
+      return { width, height }
+    }
+
+    // 绘制左侧 Logo (使用 logo.png)
+    try {
+      const logoImg = canvas.createImage()
+      logoImg.src = '/static/logo.png'
+      await new Promise<void>((resolve) => {
+        logoImg.onload = () => resolve()
+        logoImg.onerror = () => resolve()
+      })
+      if (logoImg.complete) {
+        const size = calculateLogoSize(logoImg.width, logoImg.height, leftLogoHeight)
+        const leftLogoX = padding
+        const leftLogoY = canvasHeight.value + (watermarkHeight - size.height) / 2
+        ctx.drawImage(logoImg, leftLogoX, leftLogoY, size.width, size.height)
+      }
+    }
+    catch {
+      console.error('绘制左侧 logo 失败')
+    }
+
+    // 绘制中间 Logo
     try {
       const logoImg = canvas.createImage()
       logoImg.src = props.logo
@@ -170,13 +160,17 @@ async function generateWatermarkedImage() {
         logoImg.onerror = () => resolve()
       })
       if (logoImg.complete) {
-        ctx.drawImage(logoImg, padding, canvasHeight.value + 45, logoWidth, logoHeight)
+        const size = calculateLogoSize(logoImg.width, logoImg.height, centerLogoHeight)
+        const centerLogoX = (canvasWidth.value - size.width) / 2
+        const centerLogoY = canvasHeight.value + (watermarkHeight - size.height) / 2
+        ctx.drawImage(logoImg, centerLogoX, centerLogoY, size.width, size.height)
       }
     }
     catch {
-      console.error('绘制 logo 失败')
+      console.error('绘制中间 logo 失败')
     }
 
+    // 绘制二维码
     try {
       const qrImg = canvas.createImage()
       qrImg.src = props.qrCode
@@ -185,57 +179,13 @@ async function generateWatermarkedImage() {
         qrImg.onerror = () => resolve()
       })
       if (qrImg.complete) {
-        ctx.drawImage(qrImg, canvasWidth.value - padding - qrSize, canvasHeight.value + 20, qrSize, qrSize)
+        const qrX = canvasWidth.value - padding - qrSize
+        const qrY = canvasHeight.value + (watermarkHeight - qrSize) / 2
+        ctx.drawImage(qrImg, qrX, qrY, qrSize, qrSize)
       }
     }
     catch {
       console.error('绘制二维码失败')
-    }
-
-    const textX = padding + logoWidth + 20
-    const textY = canvasHeight.value + 35
-    const iconSize = 24
-
-    ctx.fillStyle = '#333333'
-    ctx.font = '20px sans-serif'
-    ctx.textAlign = 'left'
-
-    if (cameraInfo.value) {
-      ctx.fillText(`📷 ${cameraInfo.value}`, textX, textY + 25)
-    }
-
-    const lens = lensInfo.value
-    let lensX = textX
-    const lensY = textY + 60
-
-    if (lens.focalLength) {
-      await drawIcon(ctx, canvas, '/static/icons/focal-length.png', lensX, lensY - 18, iconSize)
-      ctx.fillText(lens.focalLength, lensX + iconSize + 8, lensY)
-      lensX += ctx.measureText(lens.focalLength).width + iconSize + 40
-    }
-
-    if (lens.aperture) {
-      await drawIcon(ctx, canvas, '/static/icons/aperture.png', lensX, lensY - 18, iconSize)
-      ctx.fillText(lens.aperture, lensX + iconSize + 8, lensY)
-      lensX += ctx.measureText(lens.aperture).width + iconSize + 40
-    }
-
-    if (lens.shutterSpeed) {
-      await drawIcon(ctx, canvas, '/static/icons/shutter.png', lensX, lensY - 18, iconSize)
-      ctx.fillText(lens.shutterSpeed, lensX + iconSize + 8, lensY)
-      lensX += ctx.measureText(lens.shutterSpeed).width + iconSize + 40
-    }
-
-    if (lens.iso) {
-      await drawIcon(ctx, canvas, '/static/icons/iso.png', lensX, lensY - 18, iconSize)
-      ctx.fillText(lens.iso, lensX + iconSize + 8, lensY)
-      lensX += ctx.measureText(lens.iso).width + iconSize + 40
-    }
-
-    const city = props.photo.geoinfo?.city || props.photo.geoinfo?.region || ''
-    if (city) {
-      await drawIcon(ctx, canvas, '/static/icons/location.png', lensX, lensY - 18, iconSize)
-      ctx.fillText(city, lensX + iconSize + 8, lensY)
     }
 
     const res = await new Promise<CanvasExportResult>((resolve, reject) => {
@@ -304,7 +254,7 @@ function handlePreviewImage() {
       class="hidden-canvas"
       :style="{
         width: `${canvasWidth}px`,
-        height: `${canvasHeight + 120}px`,
+        height: `${canvasHeight + 100}px`,
       }"
     />
 
