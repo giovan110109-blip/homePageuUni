@@ -9,9 +9,9 @@ const userStore = useUserStore()
 const showNetworkError = ref(false)
 const isOnline = ref(true)
 
-onLaunch(() => {
+onLaunch(async () => {
   themeStore.initTheme()
-  userStore.init()
+  await userStore.init()
   checkUpdate()
   initNetworkListener()
 })

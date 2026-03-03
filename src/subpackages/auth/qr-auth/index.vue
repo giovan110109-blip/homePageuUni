@@ -21,6 +21,8 @@ async function handleScan() {
     return
   }
 
+  await userStore.init()
+
   if (!userStore.isLoggedIn) {
     loading.value = false
     uni.setStorageSync('qrToken', qrToken.value)

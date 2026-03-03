@@ -108,9 +108,9 @@ export const useUserStore = defineStore('user', () => {
     uni.removeStorageSync('token')
   }
 
-  function init() {
+  async function init() {
     if (token.value) {
-      fetchUserInfo()
+      await fetchUserInfo()
     }
   }
 
