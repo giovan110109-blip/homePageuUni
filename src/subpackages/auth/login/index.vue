@@ -4,6 +4,7 @@ import { ref } from 'vue'
 import { authApi } from '@/api'
 import { useThemeStore } from '@/stores/theme'
 import { useUserStore } from '@/stores/user'
+import { logger } from '@/utils/logger'
 
 const themeStore = useThemeStore()
 const userStore = useUserStore()
@@ -91,7 +92,8 @@ async function handleBindAccount() {
       }
     }, 1000)
   }
-  catch {
+  catch (error) {
+    logger.logError('handleBindAccount', error)
     uni.showToast({ title: '绑定失败，请检查账号密码', icon: 'none' })
   }
   finally {

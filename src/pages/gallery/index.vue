@@ -10,6 +10,7 @@ import LivePhoto from '@/components/photo/livePhoto.vue'
 import PhotoViewer from '@/components/photo/photoViewer.vue'
 import { useScrollStore } from '@/stores/scroll'
 import { useThemeStore } from '@/stores/theme'
+import { logger } from '@/utils/logger'
 
 const themeStore = useThemeStore()
 const scrollStore = useScrollStore()
@@ -85,7 +86,8 @@ async function fetchPhotos(reset = false) {
       page.value++
     }
   }
-  catch {
+  catch (error) {
+    logger.logError('loadPhotos', error)
   }
   finally {
     loading.value = false

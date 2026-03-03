@@ -9,6 +9,9 @@ import EmoteImage from '@/components/EmoteImage.vue'
 import Loading from '@/components/Loading.vue'
 import { useScrollStore } from '@/stores/scroll'
 import { useThemeStore } from '@/stores/theme'
+import { formatRelativeTime, formatDateShort } from '@/utils/format'
+import { getAvatarSrc, getInitial } from '@/utils/avatar'
+import { logger } from '@/utils/logger'
 
 const themeStore = useThemeStore()
 const scrollStore = useScrollStore()
@@ -24,28 +27,7 @@ const hasMore = ref(true)
 const expandedComments = ref<Set<string>>(new Set())
 
 function formatDate(dateStr: string): string {
-  const date = new Date(dateStr)
-  const now = new Date()
-  const diff = now.getTime() - date.getTime()
-  const days = Math.floor(diff / (24 * 60 * 60 * 1000))
-
-  if (days === 0) {
-    const hours = Math.floor(diff / (60 * 60 * 1000))
-    if (hours === 0) {
-      const minutes = Math.floor(diff / (60 * 1000))
-      return minutes <= 1 ? '刚刚' : `${minutes}分钟前`
-    }
-    return `${hours}小时前`
-  }
-  else if (days === 1) {
-    return '昨天'
-  }
-  else if (days < 7) {
-    return `${days}天前`
-  }
-  else {
-    return date.toLocaleDateString('zh-CN')
-  }
+  return formatRelativeTime(dateStr)
 }
 
 function formatLocation(location: MessageItem['location']): string {
@@ -53,23 +35,6 @@ function formatLocation(location: MessageItem['location']): string {
     return ''
   const parts = [location.country, location.region, location.city].filter(Boolean)
   return parts.length ? parts.join(' ') : ''
-}
-
-function getAvatarSrc(avatar: string | undefined): string {
-  if (!avatar)
-    return ''
-  if (avatar.startsWith('http'))
-    return avatar
-  if (avatar.startsWith('<svg')) {
-    return `data:image/svg+xml;utf8,${encodeURIComponent(avatar)}`
-  }
-  if (avatar.startsWith('data:'))
-    return avatar
-  return ''
-}
-
-function getInitial(name: string): string {
-  return name?.charAt(0)?.toUpperCase() || '?'
 }
 
 const emoteCache = new Map<string, any[]>()
@@ -138,7 +103,8 @@ async function fetchMessages(reset = false) {
       page.value++
     }
   }
-  catch {
+  catch (error) {
+    logger.logError('loadMessages', error)
   }
   finally {
     loading.value = false
@@ -151,7 +117,8 @@ async function fetchComments(messageId: string) {
     const res = await commentApi.getComments(messageId)
     commentsMap.value[messageId] = res.data || []
   }
-  catch {
+  catch (error) {
+    logger.logError('fetchComments', error)
   }
 }
 

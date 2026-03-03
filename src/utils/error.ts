@@ -1,3 +1,5 @@
+import type { ApiError } from '@/types/common'
+
 export enum ErrorCode {
   NETWORK_ERROR = 'NETWORK_ERROR',
   SERVER_ERROR = 'SERVER_ERROR',
@@ -9,9 +11,10 @@ export enum ErrorCode {
 }
 
 export interface AppError {
-  code: ErrorCode
+  code: ErrorCode | number
   message: string
-  originalError?: any
+  data?: unknown
+  statusCode?: number
   showToast?: boolean
 }
 

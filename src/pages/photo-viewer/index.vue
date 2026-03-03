@@ -4,6 +4,7 @@ import { onLoad } from '@dcloudio/uni-app'
 import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
 import LiveBadge from '@/components/photo/LiveBadge.vue'
 import PhotoShareGenerator from '@/components/photo/PhotoShareGenerator.vue'
+import { formatFileSize, formatYearMonth } from '@/utils/format'
 
 const photos = ref<PhotoItem[]>([])
 const currentIndex = ref(0)
@@ -15,12 +16,7 @@ const currentPhoto = computed(() => photos.value[currentIndex.value])
 const formattedDate = computed(() => {
   if (!currentPhoto.value?.dateTaken)
     return ''
-  const date = new Date(currentPhoto.value.dateTaken)
-  return date.toLocaleDateString('zh-CN', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  })
+  return formatYearMonth(currentPhoto.value.dateTaken)
 })
 
 const locationText = computed(() => {
@@ -41,7 +37,7 @@ const currentDownloadProgress = computed(() => {
   const progress = downloadingProgress.value[photoId]
   if (!progress)
     return null
-  return `${formatBytes(progress.loaded)} / ${formatBytes(progress.total)}`
+  return `${formatFileSize(progress.loaded)} / ${formatFileSize(progress.total)}`
 })
 
 const isDownloading = computed(() => {
@@ -78,15 +74,6 @@ const isVideoDownloading = ref(false)
 const showVideo = ref(false)
 const showShareGenerator = ref(false)
 const showLongPressMenu = ref(false)
-
-function formatBytes(bytes: number): string {
-  if (!bytes || bytes === 0 || Number.isNaN(bytes))
-    return '0 B'
-  const k = 1024
-  const sizes = ['B', 'KB', 'MB', 'GB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return `${Number.parseFloat((bytes / k ** i).toFixed(2))} ${sizes[i]}`
-}
 
 function getOptimizedImageUrl(photo: PhotoItem) {
   const systemInfo = uni.getSystemInfoSync()

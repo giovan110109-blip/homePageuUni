@@ -5,6 +5,7 @@ import { onMounted, reactive, ref, watch } from 'vue'
 import { useUploadQueueStore } from '@/stores/uploadQueue'
 import { useUserStore } from '@/stores/user'
 import http from '@/utils/request'
+import { formatDate, formatFileSize } from '@/utils/format'
 
 const userStore = useUserStore()
 const uploadQueueStore = useUploadQueueStore()
@@ -139,25 +140,6 @@ function handleClearCache() {
       }
     },
   })
-}
-
-function formatDate(value?: string) {
-  if (!value)
-    return '-'
-  return new Date(value).toLocaleString('zh-CN')
-}
-
-function formatFileSize(size?: number) {
-  if (!size)
-    return '-'
-  const units = ['B', 'KB', 'MB', 'GB']
-  let current = size
-  let idx = 0
-  while (current >= 1024 && idx < units.length - 1) {
-    current /= 1024
-    idx += 1
-  }
-  return `${current.toFixed(idx === 0 ? 0 : 1)} ${units[idx]}`
 }
 
 async function loadPhotos() {

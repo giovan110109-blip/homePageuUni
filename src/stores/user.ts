@@ -2,6 +2,7 @@ import type { UserInfo } from '@/api'
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { authApi } from '@/api'
+import { logger } from '@/utils/logger'
 
 export const useUserStore = defineStore('user', () => {
   const token = ref<string | null>(uni.getStorageSync('token') || null)
@@ -53,7 +54,8 @@ export const useUserStore = defineStore('user', () => {
           avatarUrl: userProfile.userInfo.avatarUrl,
         }
       }
-      catch {
+      catch (error) {
+        logger.debug('getUserProfile cancelled or failed', error)
       }
 
       const res = await authApi.wechatLogin(code, wechatUserInfo)
@@ -97,7 +99,8 @@ export const useUserStore = defineStore('user', () => {
       const res = await authApi.getMe()
       setUserInfo(res.data)
     }
-    catch {
+    catch (error) {
+      logger.logError('fetchUserInfo', error)
       logout()
     }
   }

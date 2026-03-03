@@ -1,6 +1,8 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import http from '@/utils/request'
+import { logger } from '@/utils/logger'
+import type { TaskInfo, UploadTaskStats } from '@/types/common'
 
 export interface UploadingFile {
   id: string
@@ -126,15 +128,15 @@ export const useUploadQueueStore = defineStore('uploadQueue', () => {
 
       try {
         const taskIds = pending.map(file => file.taskId)
-        const res = await http.post<{ tasks: any[] }>('/photos/tasks/batch', { taskIds })
+        const res = await http.post<{ tasks: TaskInfo[] }>('/photos/tasks/batch', { taskIds })
         if (!res.data)
           return
 
         const tasks = res.data.tasks || []
-        const taskMap = new Map(tasks.map((t: any) => [t.taskId, t]))
+        const taskMap = new Map(tasks.map((t: TaskInfo) => [t.taskId, t]))
 
         for (const uploadFile of pending) {
-          const task = taskMap.get(uploadFile.taskId) as any
+          const task = taskMap.get(uploadFile.taskId)
           if (!task)
             continue
 
@@ -247,7 +249,8 @@ export const useUploadQueueStore = defineStore('uploadQueue', () => {
       uploadFile.status = 'uploading'
       await uploadSingleFile(uploadFile)
     }
-    catch {
+    catch (error) {
+      logger.logError('processUploadQueue', error)
     }
     finally {
       isUploading.value = false

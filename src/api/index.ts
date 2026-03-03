@@ -1,4 +1,5 @@
 import http from '@/utils/request'
+import type { AlbumInfo, TaskInfo, UploadTaskStats, FailedTasksResponse } from '@/types/common'
 
 export interface SocialLink {
   platform: string
@@ -221,16 +222,16 @@ export const adminPhotoApi = {
     return http.put<PhotoItem>(`/photos/${id}`, data)
   },
   getAlbums: (page: number = 1, pageSize: number = 10) => {
-    return http.get<any[]>('/admin/albums', { page, pageSize })
+    return http.get<AlbumInfo[]>('/admin/albums', { page, pageSize })
   },
   deleteAlbum: (id: string) => {
     return http.delete<void>(`/admin/albums/${id}`)
   },
   getTaskStats: () => {
-    return http.get<{ pending: number, processing: number, completed: number, failed: number }>('/photos/tasks/stats')
+    return http.get<UploadTaskStats>('/photos/tasks/stats')
   },
   getFailedTasks: (page: number = 1, limit: number = 50) => {
-    return http.get<{ tasks: any[] }>('/photos/tasks/failed', { page, limit })
+    return http.get<FailedTasksResponse>('/photos/tasks/failed', { page, limit })
   },
   retryTask: (taskId: string) => {
     return http.post<void>(`/photos/tasks/${taskId}/retry`)

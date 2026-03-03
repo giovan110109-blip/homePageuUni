@@ -8,6 +8,7 @@ import { useScrollStore } from '@/stores/scroll'
 import { useSiteInfoStore } from '@/stores/siteInfo'
 import { useThemeStore } from '@/stores/theme'
 import { useUserStore } from '@/stores/user'
+import { logger } from '@/utils/logger'
 
 const themeStore = useThemeStore()
 const scrollStore = useScrollStore()
@@ -56,7 +57,8 @@ async function fetchSiteInfo() {
     const data = await siteInfoStore.fetchSiteInfo()
     siteInfo.value = data
   }
-  catch {
+  catch (error) {
+    logger.logError('loadSiteInfo', error)
   }
   finally {
     loading.value = false
