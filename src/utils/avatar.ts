@@ -1,21 +1,37 @@
-export const getInitial = (name?: string): string => {
-  if (!name) return 'U'
+export function getInitial(name?: string): string {
+  if (!name)
+    return 'U'
   return name.charAt(0).toUpperCase()
 }
 
-export const getAvatarSrc = (avatar?: string, name?: string): string => {
-  if (avatar) return avatar
-  return generateAvatarSvg(getInitial(name))
+export function getAvatarSrc(avatar?: string): string {
+  if (!avatar)
+    return ''
+  if (avatar.startsWith('http'))
+    return avatar
+  if (avatar.startsWith('<svg')) {
+    return `data:image/svg+xml;utf8,${encodeURIComponent(avatar)}`
+  }
+  if (avatar.startsWith('data:'))
+    return avatar
+  return ''
 }
 
-export const generateAvatarSvg = (initial: string): string => {
+export function generateAvatarSvg(initial: string): string {
   const colors = [
-    '#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', 
-    '#f97316', '#eab308', '#22c55e', '#14b8a6', '#06b6d4'
+    '#6366f1',
+    '#8b5cf6',
+    '#ec4899',
+    '#f43f5e',
+    '#f97316',
+    '#eab308',
+    '#22c55e',
+    '#14b8a6',
+    '#06b6d4',
   ]
   const colorIndex = initial.charCodeAt(0) % colors.length
   const bgColor = colors[colorIndex]
-  
+
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
     <rect width="100" height="100" fill="${bgColor}"/>
     <text x="50" y="50" dominant-baseline="central" text-anchor="middle" 
@@ -23,11 +39,11 @@ export const generateAvatarSvg = (initial: string): string => {
       ${initial}
     </text>
   </svg>`
-  
+
   return `data:image/svg+xml,${encodeURIComponent(svg)}`
 }
 
-export const generateColoredAvatar = (initial: string, bgColor?: string): string => {
+export function generateColoredAvatar(initial: string, bgColor?: string): string {
   const color = bgColor || '#6366f1'
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
     <rect width="100" height="100" fill="${color}"/>
@@ -36,6 +52,6 @@ export const generateColoredAvatar = (initial: string, bgColor?: string): string
       ${initial}
     </text>
   </svg>`
-  
+
   return `data:image/svg+xml,${encodeURIComponent(svg)}`
 }

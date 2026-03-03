@@ -9,8 +9,8 @@ import EmoteImage from '@/components/EmoteImage.vue'
 import Loading from '@/components/Loading.vue'
 import { useScrollStore } from '@/stores/scroll'
 import { useThemeStore } from '@/stores/theme'
-import { formatRelativeTime, formatDateShort } from '@/utils/format'
 import { getAvatarSrc, getInitial } from '@/utils/avatar'
+import { formatDateShort, formatRelativeTime } from '@/utils/format'
 import { logger } from '@/utils/logger'
 
 const themeStore = useThemeStore()
@@ -35,6 +35,34 @@ function formatLocation(location: MessageItem['location']): string {
     return ''
   const parts = [location.country, location.region, location.city].filter(Boolean)
   return parts.length ? parts.join(' ') : ''
+}
+
+function getNoteStyle(index: number): string {
+  const isDark = themeStore.mode === 'dark'
+  const map: Record<number, { light: string, dark: string }> = {
+    0: {
+      light: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
+      dark: 'linear-gradient(135deg, #92400e 0%, #78350f 100%)',
+    },
+    1: {
+      light: 'linear-gradient(135deg, #fce7f3 0%, #fbcfe8 100%)',
+      dark: 'linear-gradient(135deg, #831843 0%, #500724 100%)',
+    },
+    2: {
+      light: 'linear-gradient(135deg, #cffafe 0%, #a5f3fc 100%)',
+      dark: 'linear-gradient(135deg, #164e63 0%, #0e3a47 100%)',
+    },
+    3: {
+      light: 'linear-gradient(135deg, #c7d2fe 0%, #a5b4fc 100%)',
+      dark: 'linear-gradient(135deg, #312e81 0%, #1e1b4b 100%)',
+    },
+    4: {
+      light: 'linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%)',
+      dark: 'linear-gradient(135deg, #064e3b 0%, #042f2e 100%)',
+    },
+  }
+  const colors = map[index % 5]
+  return isDark ? colors.dark : colors.light
 }
 
 const emoteCache = new Map<string, any[]>()
@@ -204,13 +232,13 @@ onReachBottom(() => {
 
       <view v-else flex flex-col gap-4>
         <view
-          v-for="msg in messages"
+          v-for="(msg, index) in messages"
           :key="msg._id"
-          p-4
-          rounded-2xl
+          p-5
+          rounded-3xl
           :style="{
-            backgroundColor: themeStore.colors.bgCard,
-            border: `1px solid ${themeStore.colors.border}`,
+            background: getNoteStyle(index),
+            boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)',
           }"
         >
           <view flex items-start gap-3>

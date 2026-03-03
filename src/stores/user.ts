@@ -7,6 +7,7 @@ import { logger } from '@/utils/logger'
 export const useUserStore = defineStore('user', () => {
   const token = ref<string | null>(uni.getStorageSync('token') || null)
   const userInfo = ref<UserInfo | null>(null)
+  const isLoggingIn = ref(false)
 
   const isLoggedIn = computed(() => !!token.value && !!userInfo.value)
 
@@ -26,6 +27,9 @@ export const useUserStore = defineStore('user', () => {
   }
 
   async function wechatLogin() {
+    if (isLoggingIn.value) return false
+    isLoggingIn.value = true
+
     try {
       const loginRes = await new Promise<UniApp.LoginRes>((resolve, reject) => {
         uni.login({
@@ -89,6 +93,9 @@ export const useUserStore = defineStore('user', () => {
       }
       return false
     }
+    finally {
+      isLoggingIn.value = false
+    }
   }
 
   async function fetchUserInfo() {
@@ -122,6 +129,7 @@ export const useUserStore = defineStore('user', () => {
     userInfo,
     isLoggedIn,
     isAdmin,
+    isLoggingIn,
     setToken,
     setUserInfo,
     wechatLogin,

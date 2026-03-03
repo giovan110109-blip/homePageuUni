@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import http from '@/utils/request'
 import { logger } from '@/utils/logger'
+import { wsService } from '@/utils/websocket'
 import type { TaskInfo, UploadTaskStats } from '@/types/common'
 
 export interface UploadingFile {
@@ -63,7 +64,7 @@ export const useUploadQueueStore = defineStore('uploadQueue', () => {
   const uploadingFiles = ref<UploadingFile[]>([])
   const uploadQueue = ref<UploadingFile[]>([])
   const isUploading = ref(false)
-  const taskPoller = ref<ReturnType<typeof setInterval> | null>(null)
+  const wsUnsub = ref<(() => void) | null>(null)
 
   const taskStats = ref({
     total: 0,
@@ -78,6 +79,39 @@ export const useUploadQueueStore = defineStore('uploadQueue', () => {
   const activeUploads = computed(() => uploadingFiles.value.slice(0, MAX_VISIBLE_UPLOADS))
   const queuedCount = computed(() => uploadingFiles.value.filter(f => f.status === 'queued').length)
   const uploadingCount = computed(() => uploadingFiles.value.filter(f => f.status === 'uploading').length)
+
+  async function startWs() {
+    if (wsUnsub.value) return
+    const token = uni.getStorageSync('token')
+    if (!token) return
+
+    try {
+      await wsService.connect()
+      wsUnsub.value = wsService.subscribe(token, (data: any) => {
+        const f = uploadingFiles.value.find(x => x.taskId === data.taskId)
+        if (!f) return
+        f.status = data.status === 'completed' ? 'completed' : data.status === 'failed' ? 'error' : 'processing'
+        f.stage = data.stage
+        f.progress = Math.max(f.progress, data.progress || 0)
+        if (data.status === 'completed') {
+          f.progress = 100
+          f.createdTime = Date.now()
+          loadTaskStats()
+          setTimeout(() => {
+            const i = uploadingFiles.value.findIndex(x => x.id === f.id)
+            if (i > -1) uploadingFiles.value.splice(i, 1)
+          }, 2000)
+        } else if (data.status === 'failed') {
+          f.error = '处理失败'
+          f.createdTime = Date.now()
+          loadFailedTasks()
+          loadTaskStats()
+        }
+      })
+    } catch (e) {
+      console.error('[WS] Error:', e)
+    }
+  }
 
   function loadTaskStats() {
     http.get<{ pending: number, processing: number, completed: number, failed: number }>('/photos/tasks/stats')
@@ -112,63 +146,6 @@ export const useUploadQueueStore = defineStore('uploadQueue', () => {
       })
   }
 
-  function startTaskPolling() {
-    if (taskPoller.value)
-      return
-
-    taskPoller.value = setInterval(async () => {
-      const pending = uploadingFiles.value.filter(file => file.taskId && file.status === 'processing')
-      if (pending.length === 0) {
-        if (taskPoller.value) {
-          clearInterval(taskPoller.value)
-          taskPoller.value = null
-        }
-        return
-      }
-
-      try {
-        const taskIds = pending.map(file => file.taskId)
-        const res = await http.post<{ tasks: TaskInfo[] }>('/photos/tasks/batch', { taskIds })
-        if (!res.data)
-          return
-
-        const tasks = res.data.tasks || []
-        const taskMap = new Map(tasks.map((t: TaskInfo) => [t.taskId, t]))
-
-        for (const uploadFile of pending) {
-          const task = taskMap.get(uploadFile.taskId)
-          if (!task)
-            continue
-
-          const { status, stage, progress, error } = task
-          uploadFile.status = status === 'completed' ? 'completed' : status === 'failed' ? 'error' : 'processing'
-          uploadFile.stage = stage
-          uploadFile.progress = Math.max(uploadFile.progress, Math.min(Math.max(progress || 0, 0), 100))
-
-          if (status === 'completed') {
-            uploadFile.progress = 100
-            uploadFile.createdTime = Date.now()
-            loadTaskStats()
-            setTimeout(() => {
-              const index = uploadingFiles.value.findIndex(f => f.id === uploadFile.id)
-              if (index > -1)
-                uploadingFiles.value.splice(index, 1)
-            }, 3000)
-          }
-          else if (status === 'failed') {
-            uploadFile.error = error?.message || '处理失败'
-            uploadFile.createdTime = Date.now()
-            loadFailedTasks()
-            loadTaskStats()
-          }
-        }
-      }
-      catch (error) {
-        console.error('轮询任务状态失败:', error)
-      }
-    }, 1000)
-  }
-
   function uploadSingleFile(uploadFile: UploadingFile): Promise<void> {
     const token = uni.getStorageSync('token') || ''
 
@@ -189,7 +166,7 @@ export const useUploadQueueStore = defineStore('uploadQueue', () => {
               uploadFile.status = 'processing'
               uploadFile.progress = 0
               uploadFile.retryCount = 0
-              startTaskPolling()
+              startWs()
               resolve()
             }
             else {
@@ -302,7 +279,7 @@ export const useUploadQueueStore = defineStore('uploadQueue', () => {
           uni.showToast({ title: '已重试', icon: 'success' })
           loadFailedTasks()
           loadTaskStats()
-          startTaskPolling()
+          startWs()
         }
         else {
           throw new Error((res as any).message || '重试失败')
@@ -341,7 +318,7 @@ export const useUploadQueueStore = defineStore('uploadQueue', () => {
           uni.showToast({ title: `已重试 (${uploadFile.retryCount}/${MAX_RETRY_COUNT})`, icon: 'success' })
           loadFailedTasks()
           loadTaskStats()
-          startTaskPolling()
+          startWs()
         }
         else {
           throw new Error((res as any).message || '重试失败')
