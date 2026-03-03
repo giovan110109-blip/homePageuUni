@@ -118,14 +118,11 @@ async function generateWatermarkedImage() {
     ctx.fillStyle = '#ffffff'
     ctx.fillRect(0, canvasHeight.value, canvasWidth.value, watermarkHeight)
 
-    // Logo 最大显示高度
-    const maxLogoHeight = 50
-    const qrSize = 70
+    // 尺寸设置：左侧小，中间和右侧大
+    const leftLogoHeight = 50
+    const centerLogoHeight = 80
+    const qrSize = 80
     const padding = 30
-
-    // 二维码位置：底部右侧
-    const qrX = canvasWidth.value - padding - qrSize
-    const qrY = canvasHeight.value + (watermarkHeight - qrSize) / 2
 
     // 辅助函数：计算等比例缩放后的尺寸
     function calculateLogoSize(imgWidth: number, imgHeight: number, maxHeight: number) {
@@ -144,7 +141,7 @@ async function generateWatermarkedImage() {
         logoImg.onerror = () => resolve()
       })
       if (logoImg.complete) {
-        const size = calculateLogoSize(logoImg.width, logoImg.height, maxLogoHeight)
+        const size = calculateLogoSize(logoImg.width, logoImg.height, leftLogoHeight)
         const leftLogoX = padding
         const leftLogoY = canvasHeight.value + (watermarkHeight - size.height) / 2
         ctx.drawImage(logoImg, leftLogoX, leftLogoY, size.width, size.height)
@@ -163,7 +160,7 @@ async function generateWatermarkedImage() {
         logoImg.onerror = () => resolve()
       })
       if (logoImg.complete) {
-        const size = calculateLogoSize(logoImg.width, logoImg.height, maxLogoHeight)
+        const size = calculateLogoSize(logoImg.width, logoImg.height, centerLogoHeight)
         const centerLogoX = (canvasWidth.value - size.width) / 2
         const centerLogoY = canvasHeight.value + (watermarkHeight - size.height) / 2
         ctx.drawImage(logoImg, centerLogoX, centerLogoY, size.width, size.height)
@@ -182,6 +179,8 @@ async function generateWatermarkedImage() {
         qrImg.onerror = () => resolve()
       })
       if (qrImg.complete) {
+        const qrX = canvasWidth.value - padding - qrSize
+        const qrY = canvasHeight.value + (watermarkHeight - qrSize) / 2
         ctx.drawImage(qrImg, qrX, qrY, qrSize, qrSize)
       }
     }
