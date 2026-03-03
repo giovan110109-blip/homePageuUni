@@ -11,6 +11,7 @@ interface RequestOptions {
   showError?: boolean
   retryCount?: number
   retryDelay?: number
+  signal?: AbortSignal
 }
 
 interface ResponseData<T = any> {
@@ -25,10 +26,43 @@ interface ResponseData<T = any> {
   }
 }
 
+export interface RequestTask {
+  abort: () => void
+  promise: Promise<ResponseData<any>>
+}
+
+class AbortController {
+  private _aborted = false
+  private _listeners: Array<() => void> = []
+
+  get aborted(): boolean {
+    return this._aborted
+  }
+
+  abort(): void {
+    this._aborted = true
+    this._listeners.forEach(listener => listener())
+    this._listeners = []
+  }
+
+  addEventListener(listener: () => void): void {
+    this._listeners.push(listener)
+  }
+
+  removeEventListener(listener: () => void): void {
+    const index = this._listeners.indexOf(listener)
+    if (index > -1) {
+      this._listeners.splice(index, 1)
+    }
+  }
+}
+
+export { AbortController }
+
 class HttpRequest {
   private config = apiConfig
 
-  private getToken(): string | null {
+  getToken(): string | null {
     return uni.getStorageSync('token') || null
   }
 
@@ -43,6 +77,9 @@ class HttpRequest {
   private shouldRetry(error: any): boolean {
     if (error?.code === 'NETWORK_ERROR') {
       return true
+    }
+    if (error?.code === 'ABORTED') {
+      return false
     }
     const statusCode = error?.originalError?.statusCode || error?.statusCode
     return statusCode >= 500 && statusCode < 600
@@ -59,11 +96,16 @@ class HttpRequest {
       showError = true,
       retryCount = 3,
       retryDelay = 1000,
+      signal,
     } = options
 
     let lastError: any = null
 
     for (let attempt = 0; attempt <= retryCount; attempt++) {
+      if (signal?.aborted) {
+        throw { code: 'ABORTED', message: '请求已取消' }
+      }
+
       if (attempt > 0) {
         await this.sleep(retryDelay * attempt)
       }
@@ -77,6 +119,7 @@ class HttpRequest {
           showLoading: showLoading && attempt === 0,
           loadingText,
           showError: showError && attempt === retryCount,
+          signal,
         })
         return result
       }
@@ -92,7 +135,7 @@ class HttpRequest {
     throw lastError
   }
 
-  private doRequest<T = any>(options: RequestOptions): Promise<ResponseData<T>> {
+  private doRequest<T = any>(options: RequestOptions & { signal?: AbortSignal }): Promise<ResponseData<T>> {
     const {
       url,
       method = 'GET',
@@ -101,7 +144,12 @@ class HttpRequest {
       showLoading = false,
       loadingText = '加载中...',
       showError = true,
+      signal,
     } = options
+
+    if (signal?.aborted) {
+      return Promise.reject({ code: 'ABORTED', message: '请求已取消' })
+    }
 
     if (showLoading) {
       uni.showLoading({
@@ -114,7 +162,7 @@ class HttpRequest {
     const authHeader = token ? { Authorization: `Bearer ${token}` } : {}
 
     return new Promise((resolve, reject) => {
-      uni.request({
+      const requestTask = uni.request({
         url: this.config.baseURL + url,
         method,
         data,
@@ -152,6 +200,19 @@ class HttpRequest {
           reject(error)
         },
       })
+
+      if (signal) {
+        const abortHandler = () => {
+          requestTask.abort()
+          reject({ code: 'ABORTED', message: '请求已取消' })
+        }
+
+        if (signal.aborted) {
+          abortHandler()
+        } else {
+          signal.addEventListener('abort', abortHandler)
+        }
+      }
     })
   }
 

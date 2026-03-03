@@ -140,10 +140,6 @@ export const useThemeStore = defineStore('theme', () => {
     setTheme(storedTheme)
   }
 
-  watch(mode, (newMode) => {
-    colors.value = newMode === 'dark' ? darkTheme : lightTheme
-  })
-
   return {
     mode,
     colors,
