@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { PhotoItem } from '@/api'
-import { onReachBottom, onShareAppMessage, onShow } from '@dcloudio/uni-app'
+import { onPageScroll, onReachBottom, onShareAppMessage, onShow } from '@dcloudio/uni-app'
 import { onMounted, ref } from 'vue'
 import { photoApi } from '@/api'
 import AppHeader from '@/components/AppHeader.vue'
@@ -107,6 +107,10 @@ onShow(() => {
     const scrollTop = res?.scrollTop || 0
     scrollStore.setScrolled(scrollTop > 10)
   })
+})
+
+onPageScroll((e) => {
+  scrollStore.setScrolled(e.scrollTop > 10)
 })
 
 onMounted(() => {
