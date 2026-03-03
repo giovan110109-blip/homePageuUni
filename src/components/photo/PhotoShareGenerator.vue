@@ -28,33 +28,6 @@ const generatedImage = ref('')
 const canvasWidth = ref(2160)
 const canvasHeight = ref(3840)
 
-function formatShutterSpeed(speed: string | number | undefined): string {
-  if (!speed || speed === '0')
-    return ''
-  const num = typeof speed === 'string' ? Number.parseFloat(speed) : speed
-  if (Number.isNaN(num) || num <= 0)
-    return ''
-  // 如果小于1秒，显示为分数形式 1/x
-  if (num < 1) {
-    const denominator = Math.round(1 / num)
-    return `1/${denominator}s`
-  }
-  // 大于等于1秒，显示为整数或一位小数
-  return num % 1 === 0 ? `${Math.round(num)}s` : `${num.toFixed(1)}s`
-}
-
-const lensInfo = computed(() => {
-  const camera = props.photo.camera
-  if (!camera)
-    return { focalLength: '', aperture: '', shutterSpeed: '', iso: '' }
-  return {
-    focalLength: camera.focalLength ? `${camera.focalLength}mm` : '',
-    aperture: camera.aperture || '',
-    shutterSpeed: formatShutterSpeed(camera.shutterSpeed),
-    iso: camera.iso ? `ISO${camera.iso}` : '',
-  }
-})
-
 interface DownloadResult {
   statusCode: number
   tempFilePath: string
@@ -68,23 +41,6 @@ interface ImageInfoResult {
 
 interface CanvasExportResult {
   tempFilePath: string
-}
-
-async function drawIcon(ctx: any, canvas: any, iconPath: string, x: number, y: number, size: number) {
-  try {
-    const img = canvas.createImage()
-    img.src = iconPath
-    await new Promise<void>((resolve) => {
-      img.onload = () => resolve()
-      img.onerror = () => resolve()
-    })
-    if (img.complete) {
-      ctx.drawImage(img, x, y, size, size)
-    }
-  }
-  catch {
-    console.error('绘制图标失败:', iconPath)
-  }
 }
 
 async function generateWatermarkedImage() {
@@ -118,7 +74,8 @@ async function generateWatermarkedImage() {
     canvasWidth.value = maxWidth
     canvasHeight.value = Math.round(maxWidth / ratio)
 
-    const watermarkHeight = 120
+    // 底部水印区域高度
+    const watermarkHeight = 100
     const totalHeight = canvasHeight.value + watermarkHeight
 
     await nextTick()
@@ -146,8 +103,8 @@ async function generateWatermarkedImage() {
     canvas.height = totalHeight * dpr
     ctx.scale(dpr, dpr)
 
-    ctx.fillStyle = '#000000'
-    ctx.fillRect(0, 0, canvasWidth.value, totalHeight)
+    // 透明背景
+    ctx.clearRect(0, 0, canvasWidth.value, totalHeight)
 
     const img = canvas.createImage()
     img.src = tempFilePath
@@ -157,55 +114,47 @@ async function generateWatermarkedImage() {
     })
     ctx.drawImage(img, 0, 0, canvasWidth.value, canvasHeight.value)
 
+    // 绘制白色背景
     ctx.fillStyle = '#ffffff'
     ctx.fillRect(0, canvasHeight.value, canvasWidth.value, watermarkHeight)
 
-    const logoWidth = 160
-    const logoHeight = 50
-    const qrSize = 80
+    // Logo 最大显示高度
+    const maxLogoHeight = 50
+    const qrSize = 70
     const padding = 30
-    const watermarkCenterY = canvasHeight.value + 60
 
-    // 准备镜头参数（分为两组）
-    const lens = lensInfo.value
-    const iconSize = 22
-    ctx.font = '18px sans-serif'
+    // 二维码位置：底部右侧
+    const qrX = canvasWidth.value - padding - qrSize
+    const qrY = canvasHeight.value + (watermarkHeight - qrSize) / 2
 
-    // 第一组：焦距、光圈
-    const topRowItems: Array<{ type: string, value: string, width: number }> = []
-    // 第二组：快门、ISO、地点（但地点只有在有镜头参数时才显示）
-    const bottomRowItems: Array<{ type: string, value: string, width: number }> = []
-
-    if (lens.focalLength) {
-      const width = ctx.measureText(lens.focalLength).width + iconSize + 6
-      topRowItems.push({ type: 'focalLength', value: lens.focalLength, width })
-    }
-    if (lens.aperture) {
-      const width = ctx.measureText(lens.aperture).width + iconSize + 6
-      topRowItems.push({ type: 'aperture', value: lens.aperture, width })
-    }
-    if (lens.shutterSpeed) {
-      const width = ctx.measureText(lens.shutterSpeed).width + iconSize + 6
-      bottomRowItems.push({ type: 'shutterSpeed', value: lens.shutterSpeed, width })
-    }
-    if (lens.iso) {
-      const width = ctx.measureText(lens.iso).width + iconSize + 6
-      bottomRowItems.push({ type: 'iso', value: lens.iso, width })
+    // 辅助函数：计算等比例缩放后的尺寸
+    function calculateLogoSize(imgWidth: number, imgHeight: number, maxHeight: number) {
+      const ratio = imgWidth / imgHeight
+      const height = maxHeight
+      const width = height * ratio
+      return { width, height }
     }
 
-    // 地点只有在有镜头参数（焦距或光圈）时才显示
-    const hasCameraInfo = topRowItems.length > 0
-    const city = props.photo.geoinfo?.city || props.photo.geoinfo?.region || ''
-    if (hasCameraInfo && city) {
-      const width = ctx.measureText(city).width + iconSize + 6
-      bottomRowItems.push({ type: 'city', value: city, width })
+    // 绘制左侧 Logo (使用 logo.png)
+    try {
+      const logoImg = canvas.createImage()
+      logoImg.src = '/static/logo.png'
+      await new Promise<void>((resolve) => {
+        logoImg.onload = () => resolve()
+        logoImg.onerror = () => resolve()
+      })
+      if (logoImg.complete) {
+        const size = calculateLogoSize(logoImg.width, logoImg.height, maxLogoHeight)
+        const leftLogoX = padding
+        const leftLogoY = canvasHeight.value + (watermarkHeight - size.height) / 2
+        ctx.drawImage(logoImg, leftLogoX, leftLogoY, size.width, size.height)
+      }
+    }
+    catch {
+      console.error('绘制左侧 logo 失败')
     }
 
-    // 计算左侧内容的起始位置
-    const leftStartX = padding
-    const logoY = watermarkCenterY - logoHeight / 2
-
-    // 绘制 Logo
+    // 绘制中间 Logo
     try {
       const logoImg = canvas.createImage()
       logoImg.src = props.logo
@@ -214,14 +163,17 @@ async function generateWatermarkedImage() {
         logoImg.onerror = () => resolve()
       })
       if (logoImg.complete) {
-        ctx.drawImage(logoImg, leftStartX, logoY, logoWidth, logoHeight)
+        const size = calculateLogoSize(logoImg.width, logoImg.height, maxLogoHeight)
+        const centerLogoX = (canvasWidth.value - size.width) / 2
+        const centerLogoY = canvasHeight.value + (watermarkHeight - size.height) / 2
+        ctx.drawImage(logoImg, centerLogoX, centerLogoY, size.width, size.height)
       }
     }
     catch {
-      console.error('绘制 logo 失败')
+      console.error('绘制中间 logo 失败')
     }
 
-    // 绘制二维码（右侧居中）
+    // 绘制二维码
     try {
       const qrImg = canvas.createImage()
       qrImg.src = props.qrCode
@@ -230,56 +182,11 @@ async function generateWatermarkedImage() {
         qrImg.onerror = () => resolve()
       })
       if (qrImg.complete) {
-        ctx.drawImage(qrImg, canvasWidth.value - padding - qrSize, watermarkCenterY - qrSize / 2, qrSize, qrSize)
+        ctx.drawImage(qrImg, qrX, qrY, qrSize, qrSize)
       }
     }
     catch {
       console.error('绘制二维码失败')
-    }
-
-    // 绘制镜头参数（两组上下布局）
-    ctx.fillStyle = '#333333'
-    ctx.textAlign = 'left'
-
-    const infoStartX = leftStartX + logoWidth + 20
-    // 信息栏整体在水印区域垂直居中
-    // 水印高度 120px，信息栏总高度约 50px
-    // 居中意味着上下留白相等：(120 - 50) / 2 = 35px
-    const topRowY = canvasHeight.value + 45
-    const bottomRowY = canvasHeight.value + 85
-
-    // 绘制第一行（焦距、光圈）
-    let topX = infoStartX
-    for (let i = 0; i < topRowItems.length; i++) {
-      const item = topRowItems[i]
-      const iconPathMap: Record<string, string> = {
-        focalLength: '/static/icons/focal-length.png',
-        aperture: '/static/icons/aperture.png',
-        shutterSpeed: '/static/icons/shutter.png',
-        iso: '/static/icons/iso.png',
-        city: '/static/icons/location.png',
-      }
-      await drawIcon(ctx, canvas, iconPathMap[item.type], topX, topRowY - 16, iconSize)
-      ctx.fillText(item.value, topX + iconSize + 6, topRowY)
-      const spacing = i === topRowItems.length - 1 ? 0 : 10
-      topX += item.width + spacing
-    }
-
-    // 绘制第二行（快门、ISO、地点）
-    let bottomX = infoStartX
-    for (let i = 0; i < bottomRowItems.length; i++) {
-      const item = bottomRowItems[i]
-      const iconPathMap: Record<string, string> = {
-        focalLength: '/static/icons/focal-length.png',
-        aperture: '/static/icons/aperture.png',
-        shutterSpeed: '/static/icons/shutter.png',
-        iso: '/static/icons/iso.png',
-        city: '/static/icons/location.png',
-      }
-      await drawIcon(ctx, canvas, iconPathMap[item.type], bottomX, bottomRowY - 16, iconSize)
-      ctx.fillText(item.value, bottomX + iconSize + 6, bottomRowY)
-      const spacing = i === bottomRowItems.length - 1 ? 0 : 10
-      bottomX += item.width + spacing
     }
 
     const res = await new Promise<CanvasExportResult>((resolve, reject) => {
@@ -348,7 +255,7 @@ function handlePreviewImage() {
       class="hidden-canvas"
       :style="{
         width: `${canvasWidth}px`,
-        height: `${canvasHeight + 120}px`,
+        height: `${canvasHeight + 100}px`,
       }"
     />
 
