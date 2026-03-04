@@ -43,26 +43,7 @@ export const useUserStore = defineStore('user', () => {
         throw new Error('获取登录code失败')
       }
 
-      let wechatUserInfo: { nickName: string, avatarUrl: string } | undefined
-
-      try {
-        const userProfile = await new Promise<UniApp.GetUserProfileRes>((resolve, reject) => {
-          uni.getUserProfile({
-            desc: '用于完善用户资料',
-            success: resolve,
-            fail: reject,
-          })
-        })
-        wechatUserInfo = {
-          nickName: userProfile.userInfo.nickName,
-          avatarUrl: userProfile.userInfo.avatarUrl,
-        }
-      }
-      catch (error) {
-        logger.debug('getUserProfile cancelled or failed', error)
-      }
-
-      const res = await authApi.wechatLogin(code, wechatUserInfo)
+      const res = await authApi.wechatLogin(code)
 
       setToken(res.data.token)
       setUserInfo(res.data.user)

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onLoad } from '@dcloudio/uni-app'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { authApi } from '@/api'
 import { useThemeStore } from '@/stores/theme'
 import { useUserStore } from '@/stores/user'
@@ -12,11 +12,19 @@ const userStore = useUserStore()
 const loading = ref(false)
 const redirect = ref('')
 const loginMode = ref<'wechat' | 'bind'>('wechat')
+const agreed = ref(false)
 
 const username = ref('')
 const password = ref('')
 
+const canLogin = computed(() => agreed.value)
+
 async function handleWechatLogin() {
+  if (!agreed.value) {
+    uni.showToast({ title: '请先同意用户协议和隐私政策', icon: 'none' })
+    return
+  }
+
   loading.value = true
   try {
     const success = await userStore.wechatLogin()
@@ -43,6 +51,11 @@ async function handleWechatLogin() {
 }
 
 async function handleBindAccount() {
+  if (!agreed.value) {
+    uni.showToast({ title: '请先同意用户协议和隐私政策', icon: 'none' })
+    return
+  }
+
   if (!username.value.trim()) {
     uni.showToast({ title: '请输入用户名', icon: 'none' })
     return
@@ -105,10 +118,31 @@ function goBack() {
   uni.navigateBack()
 }
 
+function goToUserAgreement() {
+  uni.navigateTo({ url: '/subpackages/auth/user-agreement/index' })
+}
+
+function goToPrivacyPolicy() {
+  uni.navigateTo({ url: '/subpackages/auth/privacy-policy/index' })
+}
+
 onLoad((options) => {
   redirect.value = options?.redirect || ''
   if (options?.mode === 'bind') {
     loginMode.value = 'bind'
+  }
+
+  if (userStore.isLoggedIn) {
+    const qrToken = options?.qrToken
+    if (qrToken) {
+      uni.redirectTo({ url: `/subpackages/auth/qr-auth/index?qrToken=${qrToken}` })
+    }
+    else if (redirect.value) {
+      uni.redirectTo({ url: redirect.value })
+    }
+    else {
+      uni.navigateBack()
+    }
   }
 })
 </script>
@@ -172,11 +206,26 @@ onLoad((options) => {
 
       <text
         text-sm
-        mb-8
+        mb-4
         :style="{ color: themeStore.colors.textTertiary }"
       >
         {{ loginMode === 'wechat' ? '登录后可同步您的数据' : '绑定已有账号到微信' }}
       </text>
+
+      <view
+        mb-6
+        px-4
+        py-2
+        rounded-lg
+        :style="{ backgroundColor: `${themeStore.colors.accent}15` }"
+      >
+        <text
+          text-xs
+          :style="{ color: themeStore.colors.accent }"
+        >
+          仅限管理员登录（个人小程序）
+        </text>
+      </view>
 
       <view
         w-full
@@ -193,6 +242,7 @@ onLoad((options) => {
             :style="{
               background: `linear-gradient(135deg, #07c160, #06ad56)`,
               boxShadow: '0 4px 15px rgba(7, 193, 96, 0.3)',
+              opacity: canLogin ? 1 : 0.5,
             }"
             :class="{ 'opacity-60': loading }"
             @click="handleWechatLogin"
@@ -256,6 +306,7 @@ onLoad((options) => {
             :style="{
               backgroundColor: themeStore.colors.bgCard,
               border: `1px solid ${themeStore.colors.border}`,
+              opacity: canLogin ? 1 : 0.5,
             }"
             @click="loginMode = 'bind'"
           >
@@ -314,7 +365,7 @@ onLoad((options) => {
             </text>
             <input
               v-model="password"
-              type="password"
+              password
               placeholder="请输入密码"
               h-12
               px-4
@@ -337,6 +388,7 @@ onLoad((options) => {
             :style="{
               background: `linear-gradient(135deg, ${themeStore.colors.primary}, ${themeStore.colors.secondary})`,
               boxShadow: `0 4px 15px ${themeStore.colors.primary}40`,
+              opacity: canLogin ? 1 : 0.5,
             }"
             :class="{ 'opacity-60': loading }"
             @click="handleBindAccount"
@@ -406,14 +458,43 @@ onLoad((options) => {
       <view
         mt-8
         px-6
-        text-center
+        w-full
+        max-w-300px
       >
-        <text
-          text-xs
-          :style="{ color: themeStore.colors.textTertiary }"
+        <view
+          flex
+          items-center
+          gap-2
         >
-          登录即表示同意用户协议和隐私政策
-        </text>
+          <view
+            w-5
+            h-5
+            rounded
+            flex-center
+            flex-shrink-0
+            :style="{
+              backgroundColor: agreed ? themeStore.colors.primary : 'transparent',
+              border: agreed ? 'none' : `2px solid ${themeStore.colors.border}`,
+            }"
+            @click="agreed = !agreed"
+          >
+            <view
+              v-if="agreed"
+              i-tabler-check
+              text-xs
+              text-white
+            />
+          </view>
+          <text
+            text-xs
+            :style="{ color: themeStore.colors.textTertiary }"
+          >
+            我已阅读并同意
+            <text :style="{ color: themeStore.colors.primary }" @click.stop="goToUserAgreement">《用户协议》</text>
+            和
+            <text :style="{ color: themeStore.colors.primary }" @click.stop="goToPrivacyPolicy">《隐私政策》</text>
+          </text>
+        </view>
       </view>
     </view>
   </view>
