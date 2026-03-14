@@ -126,18 +126,22 @@ function goToPrivacyPolicy() {
   uni.navigateTo({ url: '/subpackages/auth/privacy-policy/index' })
 }
 
-onLoad((options) => {
+onLoad(async (options) => {
   redirect.value = options?.redirect || ''
   if (options?.mode === 'bind') {
     loginMode.value = 'bind'
   }
 
+  await userStore.init()
+
   if (userStore.isLoggedIn) {
-    const qrToken = options?.qrToken
+    const qrToken = uni.getStorageSync('qrToken')
     if (qrToken) {
+      uni.removeStorageSync('qrToken')
       uni.redirectTo({ url: `/subpackages/auth/qr-auth/index?qrToken=${qrToken}` })
+      return
     }
-    else if (redirect.value) {
+    if (redirect.value) {
       uni.redirectTo({ url: redirect.value })
     }
     else {

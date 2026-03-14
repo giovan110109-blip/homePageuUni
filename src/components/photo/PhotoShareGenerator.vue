@@ -75,7 +75,7 @@ async function generateWatermarkedImage() {
     canvasHeight.value = Math.round(maxWidth / ratio)
 
     // 底部水印区域高度
-    const watermarkHeight = 100
+    const watermarkHeight = 120
     const totalHeight = canvasHeight.value + watermarkHeight
 
     await nextTick()
@@ -121,7 +121,7 @@ async function generateWatermarkedImage() {
     // 尺寸设置：左侧小，中间和右侧大
     const leftLogoHeight = 50
     const centerLogoHeight = 80
-    const qrSize = 80
+    const qrSize = 100
     const padding = 30
 
     // 辅助函数：计算等比例缩放后的尺寸
@@ -378,9 +378,10 @@ function handlePreviewImage() {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  max-height: 60vh;
-  overflow: hidden;
+  justify-content: flex-start;
+  max-height: calc(85vh - 60px);
+  overflow-y: auto;
+  flex: 1;
 }
 
 .preview-image {

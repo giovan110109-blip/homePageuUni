@@ -15,11 +15,12 @@ function handleQrCodeScene(query: Record<string, any> = {}) {
   if (scene && scene !== lastScene) {
     lastScene = scene
     const qrToken = decodeURIComponent(scene)
+    uni.setStorageSync('qrToken', qrToken)
     if (userStore.isLoggedIn) {
-      uni.navigateTo({ url: `/subpackages/auth/qr-auth/index?qrToken=${qrToken}` })
+      uni.redirectTo({ url: `/subpackages/auth/qr-auth/index?qrToken=${qrToken}` })
     }
     else {
-      uni.navigateTo({ url: `/subpackages/auth/login/index?qrToken=${qrToken}` })
+      uni.redirectTo({ url: '/subpackages/auth/login/index' })
     }
   }
 }

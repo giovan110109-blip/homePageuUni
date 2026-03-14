@@ -30,6 +30,7 @@ async function handleScan() {
     return
   }
 
+  loading.value = true
   try {
     await authApi.scanQrLogin(qrToken.value)
     status.value = 'confirm'
