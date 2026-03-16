@@ -4,8 +4,8 @@ import { storeToRefs } from 'pinia'
 import { onMounted, reactive, ref, watch } from 'vue'
 import { useUploadQueueStore } from '@/stores/uploadQueue'
 import { useUserStore } from '@/stores/user'
-import http from '@/utils/request'
 import { formatDate, formatFileSize } from '@/utils/format'
+import http from '@/utils/request'
 
 const userStore = useUserStore()
 const uploadQueueStore = useUploadQueueStore()
@@ -221,6 +221,38 @@ async function setVisibility(row: any, visibility: string) {
   }
 }
 
+async function handleChooseLocation(photo: any) {
+  try {
+    const res = await new Promise<UniApp.ChooseLocationSuccess>((resolve, reject) => {
+      uni.chooseLocation({
+        success: resolve,
+        fail: reject,
+      })
+    })
+
+    const locationData = {
+      location: {
+        latitude: res.latitude,
+        longitude: res.longitude,
+      },
+      geoinfo: {
+        locationName: res.name,
+        formatted: res.address || res.name,
+      },
+    }
+
+    await http.put(`/photos/${photo._id}/location`, locationData)
+    uni.showToast({ title: '位置已更新', icon: 'success' })
+    await loadPhotos()
+  }
+  catch (error: any) {
+    if (error.errMsg?.includes('cancel')) {
+      return
+    }
+    uni.showToast({ title: error?.message || '选择位置失败', icon: 'none' })
+  }
+}
+
 watch(activeTab, (newTab) => {
   if (newTab === 'photos' && photoTableData.value.length === 0) {
     loadPhotos()
@@ -427,9 +459,20 @@ function getPhotoImageUrl(photo: any) {
             <view class="photo-info">
               <text class="photo-title">{{ photo.title || photo.originalFileName }}</text>
               <text class="photo-meta">{{ photo.width }}×{{ photo.height }} · {{ formatFileSize(photo.fileSize) }}</text>
+              <text v-if="photo.geoinfo || photo.location" class="photo-location">
+                <view i-tabler-map-pin text-xs />
+                {{ photo.geoinfo?.city }}
+              </text>
               <text class="photo-date">{{ formatDate(photo.createdAt) }}</text>
             </view>
             <view class="photo-actions">
+              <view
+                class="action-btn icon-btn"
+                :class="{ 'has-location': photo.geoinfo?.formatted }"
+                @click="handleChooseLocation(photo)"
+              >
+                <view i-tabler-map-pin text-base />
+              </view>
               <view
                 class="action-btn small"
                 @click="setVisibility(photo, photo.visibility === 'public' ? 'private' : 'public')"
@@ -693,6 +736,27 @@ function getPhotoImageUrl(photo: any) {
   color: white;
 }
 
+.icon-btn {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: #f3f4f6;
+  color: #9ca3af;
+}
+
+.icon-btn.has-location {
+  background: #d1fae5;
+  color: #10b981;
+}
+
+.icon-btn:active {
+  transform: scale(0.95);
+}
+
 .progress-summary {
   display: flex;
   gap: 12px;
@@ -929,9 +993,19 @@ function getPhotoImageUrl(photo: any) {
   color: #9ca3af;
 }
 
+.photo-location {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #10b981;
+  margin-top: 2px;
+}
+
 .photo-actions {
   display: flex;
-  gap: 8px;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .pagination {
