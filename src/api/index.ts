@@ -221,6 +221,12 @@ export const adminPhotoApi = {
   updatePhoto: (id: string, data: { title?: string, visibility?: string }) => {
     return http.put<PhotoItem>(`/photos/${id}`, data)
   },
+  updatePhotoLocation: (id: string, data: {
+    location?: { latitude: number, longitude: number }
+    geoinfo?: { country?: string, region?: string, city?: string, locationName?: string, formatted?: string }
+  }) => {
+    return http.put<PhotoItem>(`/photos/${id}/location`, data)
+  },
   getAlbums: (page: number = 1, pageSize: number = 10) => {
     return http.get<AlbumInfo[]>('/admin/albums', { page, pageSize })
   },
