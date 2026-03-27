@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import type { PhotoItem } from '@/api'
-import { onLoad } from '@dcloudio/uni-app'
+import { onLoad, onShareAppMessage, onShareTimeline, onShow } from '@dcloudio/uni-app'
 import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
+import { photoApi } from '@/api'
 import LiveBadge from '@/components/photo/LiveBadge.vue'
 import PhotoShareGenerator from '@/components/photo/PhotoShareGenerator.vue'
 import { formatFileSize, formatYearMonth } from '@/utils/format'
@@ -74,6 +75,17 @@ const isVideoDownloading = ref(false)
 const showVideo = ref(false)
 const showShareGenerator = ref(false)
 const showLongPressMenu = ref(false)
+
+const shareTitle = 'Giovan｜把喜欢的瞬间分享给你'
+
+const shareImageUrl = computed(() => currentPhoto.value?.thumbnailUrl || currentPhoto.value?.originalFileUrl || '')
+
+const sharePath = computed(() => {
+  const photoId = currentPhoto.value?._id
+  if (!photoId)
+    return '/pages/gallery/index'
+  return `/pages/photo-viewer/index?id=${photoId}`
+})
 
 function getOptimizedImageUrl(photo: PhotoItem) {
   const systemInfo = uni.getSystemInfoSync()
@@ -239,9 +251,37 @@ function toggleMute() {
   isMuted.value = !isMuted.value
 }
 
+async function loadSharedPhoto(photoId: string) {
+  try {
+    const res = await photoApi.getPhotoDetail(photoId)
+    if (res.data) {
+      photos.value = [res.data]
+      currentIndex.value = 0
+      await nextTick()
+      downloadImage(0)
+      if (res.data.isLive && res.data.videoUrl) {
+        preloadVideo()
+      }
+    }
+  }
+  catch (error) {
+    console.error('加载图片详情失败', error)
+    uni.showToast({ title: '图片加载失败', icon: 'none' })
+  }
+}
+
+function initShareMenu() {
+  // #ifdef MP-WEIXIN
+  uni.showShareMenu({
+    menus: ['shareAppMessage', 'shareTimeline'],
+  })
+  // #endif
+}
+
 onLoad((options) => {
   const systemInfo = uni.getSystemInfoSync()
   statusBarHeight.value = systemInfo.statusBarHeight || 0
+  initShareMenu()
 
   if (options?.photos) {
     try {
@@ -255,12 +295,21 @@ onLoad((options) => {
     currentIndex.value = Number(options.index) || 0
   }
 
+  if (!photos.value.length && options?.id) {
+    loadSharedPhoto(options.id)
+    return
+  }
+
   nextTick(() => {
     downloadImage(currentIndex.value)
     if (currentPhoto.value?.isLive && currentPhoto.value.videoUrl) {
       preloadVideo()
     }
   })
+})
+
+onShow(() => {
+  initShareMenu()
 })
 
 watch(currentIndex, (newIndex, oldIndex) => {
@@ -298,8 +347,30 @@ function handleSwiperChange(e: any) {
   currentIndex.value = e.detail.current
 }
 
+function goToGallery() {
+  uni.switchTab({
+    url: '/pages/gallery/index',
+    fail: () => {
+      uni.reLaunch({
+        url: '/pages/gallery/index',
+      })
+    },
+  })
+}
+
 function goBack() {
-  uni.navigateBack()
+  const pages = getCurrentPages()
+
+  if (pages.length > 1) {
+    uni.navigateBack({
+      fail: () => {
+        goToGallery()
+      },
+    })
+    return
+  }
+
+  goToGallery()
 }
 
 function handleShare() {
@@ -331,6 +402,22 @@ async function saveCurrentImage() {
 function closeLongPressMenu() {
   showLongPressMenu.value = false
 }
+
+onShareAppMessage(() => {
+  return {
+    title: shareTitle,
+    path: sharePath.value,
+    imageUrl: shareImageUrl.value,
+  }
+})
+
+onShareTimeline(() => {
+  return {
+    title: shareTitle,
+    query: currentPhoto.value?._id ? `id=${currentPhoto.value._id}` : '',
+    imageUrl: shareImageUrl.value,
+  }
+})
 </script>
 
 <template>

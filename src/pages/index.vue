@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { SiteInfo } from '@/api'
 import { onLoad, onPageScroll, onShareAppMessage, onShow } from '@dcloudio/uni-app'
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import AppHeader from '@/components/AppHeader.vue'
 import CustomTabBar from '@/components/CustomTabBar.vue'
 import { useScrollStore } from '@/stores/scroll'
@@ -21,6 +21,22 @@ const siteInfo = ref<SiteInfo | null>(null)
 const loading = ref(true)
 
 const particles = ref<Array<{ x: number, y: number, size: number, speedX: number, speedY: number, opacity: number }>>([])
+
+const pageBackdropStyle = computed(() => ({
+  background: themeStore.mode === 'dark'
+    ? 'radial-gradient(circle at 12% 0%, rgba(99, 102, 241, 0.2) 0%, rgba(15, 23, 42, 0) 30%), radial-gradient(circle at 100% 8%, rgba(14, 165, 233, 0.14) 0%, rgba(15, 23, 42, 0) 24%), linear-gradient(180deg, #0f172a 0%, #111827 100%)'
+    : 'radial-gradient(circle at 8% 0%, rgba(99, 102, 241, 0.16) 0%, rgba(248, 250, 252, 0) 26%), radial-gradient(circle at 100% 10%, rgba(14, 165, 233, 0.12) 0%, rgba(248, 250, 252, 0) 22%), linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%)',
+}))
+
+const contactCardStyle = computed(() => ({
+  background: `linear-gradient(135deg, ${themeStore.colors.bgCard} 0%, ${themeStore.colors.bgSecondary} 100%)`,
+  border: `1px solid ${themeStore.colors.borderLight}`,
+  boxShadow: themeStore.mode === 'dark'
+    ? '0 16px 34px rgba(2, 6, 23, 0.28)'
+    : '0 16px 34px rgba(148, 163, 184, 0.14)',
+}))
+
+const homepageUrl = computed(() => siteInfo.value?.website || 'https://www.giovan.cn/#')
 
 const skillsList = [
   // 前端框架
@@ -148,10 +164,7 @@ onShareAppMessage(() => {
       right-0
       bottom-0
       z-0
-      bg-gradient-to-br
-      from-indigo-100
-      via-purple-50
-      to-pink-100
+      :style="pageBackdropStyle"
     />
 
     <view absolute top-0 left-0 right-0 bottom-0 z-0 overflow-hidden>
@@ -255,11 +268,6 @@ onShareAppMessage(() => {
           <text text-2xl font-bold tracking-wide :style="{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }">我是 {{ siteInfo?.name || 'Giovan' }}</text>
         </view>
 
-        <!-- <view mb-5>
-          <text text-lg text-gray tracking-normal>{{ siteInfo?.title || '一名热爱创造的' }}</text>
-          <text v-if="!siteInfo?.title" text-lg font-semibold text-primary-color tracking-normal relative>开发者<view absolute bottom--0.5 left-0 right-0 h-[3px] bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] rounded-[2px] /></text>
-        </view> -->
-
         <view mb-7>
           <text text-base text-light tracking-tight>{{ siteInfo?.bio || '专注于构建优雅、高效的数字产品' }}</text>
         </view>
@@ -289,41 +297,109 @@ onShareAppMessage(() => {
           <text text-sm text-gray italic tracking-normal>"慢一点，再慢一点。"</text>
         </view>
 
-        <view w-full mb-6 flex flex-col gap-3>
-          <view v-if="siteInfo?.location" flex items-center gap-3 p-3 px-4 class="bg-white active:bg-white-80" rounded-xl border border-primary-ultra-light transition-all duration-300 active:scale-98>
-            <view w-10 h-10 flex items-center justify-center bg-primary-ultra-light rounded-[10px] text-xl>
-              <text>📍</text>
-            </view>
-            <view flex-1 flex flex-col gap-0.5>
-              <text text-sm text-dark font-medium>{{ siteInfo.location }}</text>
-            </view>
-          </view>
-          <view v-if="siteInfo?.footerContact?.phone" flex items-center gap-3 p-3 px-4 class="bg-white active:bg-white-80" rounded-xl border border-primary-ultra-light transition-all duration-300 active:scale-98 @click="copyToClipboard(siteInfo.footerContact.phone, '电话')">
-            <view w-10 h-10 flex items-center justify-center bg-primary-ultra-light rounded-[10px] text-xl>
-              <text>📱</text>
-            </view>
-            <view flex-1 flex flex-col gap-0.5>
-              <text text-sm text-dark font-medium>{{ siteInfo.footerContact.phone }}</text>
-            </view>
-          </view>
-          <view v-if="siteInfo?.email || siteInfo?.footerContact?.email" flex items-center gap-3 p-3 px-4 class="bg-white active:bg-white-80" rounded-xl border border-primary-ultra-light transition-all duration-300 active:scale-98 @click="copyToClipboard(siteInfo?.email || siteInfo?.footerContact?.email, '邮箱')">
-            <view w-10 h-10 flex items-center justify-center bg-primary-ultra-light rounded-[10px] text-xl>
-              <text>📧</text>
-            </view>
-            <view flex-1 flex flex-col gap-0.5>
-              <text text-sm text-dark font-medium>{{ siteInfo?.email || siteInfo?.footerContact?.email }}</text>
-            </view>
-          </view>
-          <view v-if="siteInfo?.wechat || siteInfo?.footerContact?.wechat" flex items-center gap-3 p-3 px-4 class="bg-white active:bg-white-80" rounded-xl border border-primary-ultra-light transition-all duration-300 active:scale-98 @click="copyToClipboard(siteInfo?.wechat || siteInfo?.footerContact?.wechat, '微信号')">
-            <view w-10 h-10 flex items-center justify-center rounded-[10px] text-xl style="background-color: rgba(7, 193, 96, 0.1)">
+        <view w-full mb-6>
+          <view flex flex-col gap-3>
+            <view
+              v-if="siteInfo?.location"
+              class="contact-card"
+              :style="contactCardStyle"
+            >
               <view
-                i-tabler-brand-wechat
-                text-xl
-                style="color: #07C160"
-              />
+                class="contact-icon-shell contact-card-layer"
+                style="background: linear-gradient(135deg, rgba(249, 115, 22, 0.18), rgba(251, 146, 60, 0.08)); border: 1px solid rgba(249, 115, 22, 0.12);"
+              >
+                <view class="contact-icon-glow" style="background: rgba(249, 115, 22, 0.16);" />
+                <view i-tabler-map-pin text-lg style="color: #f97316;" />
+              </view>
+              <view class="contact-card-layer" flex-1 min-w-0 flex flex-col gap-1>
+                <text text-sm font-semibold class="truncate-1" :style="{ color: themeStore.colors.textPrimary }">{{ siteInfo.location }}</text>
+              </view>
+              <view class="contact-action contact-card-layer" style="color: #f97316; background: rgba(249, 115, 22, 0.1);">
+                <view i-tabler-compass text-sm />
+              </view>
             </view>
-            <view flex-1 flex flex-col gap-0.5>
-              <text text-sm text-dark font-medium>{{ siteInfo?.wechat || siteInfo?.footerContact?.wechat }}</text>
+
+            <view
+              v-if="siteInfo?.footerContact?.phone"
+              class="contact-card"
+              :style="contactCardStyle"
+              @click="copyToClipboard(siteInfo.footerContact.phone, '电话')"
+            >
+              <view
+                class="contact-icon-shell contact-card-layer"
+                style="background: linear-gradient(135deg, rgba(99, 102, 241, 0.18), rgba(59, 130, 246, 0.08)); border: 1px solid rgba(99, 102, 241, 0.12);"
+              >
+                <view class="contact-icon-glow" style="background: rgba(99, 102, 241, 0.16);" />
+                <view i-tabler-phone text-lg style="color: #4f46e5;" />
+              </view>
+              <view class="contact-card-layer" flex-1 min-w-0 flex flex-col gap-1>
+                <text text-sm font-semibold class="truncate-1" :style="{ color: themeStore.colors.textPrimary }">{{ siteInfo.footerContact.phone }}</text>
+              </view>
+              <view class="contact-action contact-card-layer" style="color: #4f46e5; background: rgba(99, 102, 241, 0.1);">
+                <view i-tabler-copy text-sm />
+              </view>
+            </view>
+
+            <view
+              v-if="siteInfo?.email || siteInfo?.footerContact?.email"
+              class="contact-card"
+              :style="contactCardStyle"
+              @click="copyToClipboard(siteInfo?.email || siteInfo?.footerContact?.email, '邮箱')"
+            >
+              <view
+                class="contact-icon-shell contact-card-layer"
+                style="background: linear-gradient(135deg, rgba(14, 165, 233, 0.18), rgba(56, 189, 248, 0.08)); border: 1px solid rgba(14, 165, 233, 0.12);"
+              >
+                <view class="contact-icon-glow" style="background: rgba(14, 165, 233, 0.16);" />
+                <view i-tabler-mail text-lg style="color: #0284c7;" />
+              </view>
+              <view class="contact-card-layer" flex-1 min-w-0 flex flex-col gap-1>
+                <text text-sm font-semibold class="truncate-1" :style="{ color: themeStore.colors.textPrimary }">{{ siteInfo?.email || siteInfo?.footerContact?.email }}</text>
+              </view>
+              <view class="contact-action contact-card-layer" style="color: #0284c7; background: rgba(14, 165, 233, 0.1);">
+                <view i-tabler-copy text-sm />
+              </view>
+            </view>
+
+            <view
+              class="contact-card"
+              :style="contactCardStyle"
+              @click="copyToClipboard(homepageUrl, '主页地址')"
+            >
+              <view
+                class="contact-icon-shell contact-card-layer"
+                style="background: linear-gradient(135deg, rgba(168, 85, 247, 0.18), rgba(129, 140, 248, 0.08)); border: 1px solid rgba(168, 85, 247, 0.12);"
+              >
+                <view class="contact-icon-glow" style="background: rgba(168, 85, 247, 0.16);" />
+                <view i-tabler-world text-lg style="color: #7c3aed;" />
+              </view>
+              <view class="contact-card-layer" flex-1 min-w-0 flex flex-col gap-1>
+                <text text-sm font-semibold class="truncate-1" :style="{ color: themeStore.colors.textPrimary }">{{ homepageUrl }}</text>
+              </view>
+              <view class="contact-action contact-card-layer" style="color: #7c3aed; background: rgba(168, 85, 247, 0.1);">
+                <view i-tabler-copy text-sm />
+              </view>
+            </view>
+
+            <view
+              v-if="siteInfo?.wechat || siteInfo?.footerContact?.wechat"
+              class="contact-card"
+              :style="contactCardStyle"
+              @click="copyToClipboard(siteInfo?.wechat || siteInfo?.footerContact?.wechat, '微信号')"
+            >
+              <view
+                class="contact-icon-shell contact-card-layer"
+                style="background: linear-gradient(135deg, rgba(7, 193, 96, 0.18), rgba(52, 211, 153, 0.08)); border: 1px solid rgba(7, 193, 96, 0.14);"
+              >
+                <view class="contact-icon-glow" style="background: rgba(7, 193, 96, 0.18);" />
+                <view i-tabler-brand-wechat text-lg style="color: #07C160;" />
+              </view>
+              <view class="contact-card-layer" flex-1 min-w-0 flex flex-col gap-1>
+                <text text-sm font-semibold class="truncate-1" :style="{ color: themeStore.colors.textPrimary }">{{ siteInfo?.wechat || siteInfo?.footerContact?.wechat }}</text>
+              </view>
+              <view class="contact-action contact-card-layer" style="color: #07C160; background: rgba(7, 193, 96, 0.1);">
+                <view i-tabler-copy text-sm />
+              </view>
             </view>
           </view>
         </view>
@@ -403,6 +479,79 @@ onShareAppMessage(() => {
 .skills-swiper {
   width: 100%;
   height: 120rpx;
+}
+
+.contact-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  border-radius: 20px;
+  overflow: hidden;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.contact-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at top right, rgba(255, 255, 255, 0.45), transparent 42%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.28), transparent 55%);
+  pointer-events: none;
+}
+
+.contact-card:active {
+  transform: scale(0.985);
+}
+
+.contact-card-layer {
+  position: relative;
+  z-index: 1;
+}
+
+.contact-icon-shell {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.contact-icon-glow {
+  position: absolute;
+  inset: 10px;
+  border-radius: 9999px;
+  filter: blur(10px);
+  opacity: 0.9;
+}
+
+.contact-label {
+  font-size: 22rpx;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+}
+
+.contact-tag {
+  padding: 4rpx 12rpx;
+  border-radius: 9999px;
+  font-size: 20rpx;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.contact-action {
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
 .avatar-ring {
