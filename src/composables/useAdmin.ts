@@ -1,12 +1,11 @@
+import type { PhotoItem } from '@/api'
 import { computed, ref } from 'vue'
+import { adminPhotoApi } from '@/api'
 import { useUploadQueueStore } from '@/stores/uploadQueue'
 import { logger } from '@/utils/logger'
 import http from '@/utils/request'
-import type { PhotoItem } from '@/api'
 
 export function useAdminPhotos() {
-  const uploadQueueStore = useUploadQueueStore()
-
   const photos = ref<PhotoItem[]>([])
   const loading = ref(false)
   const page = ref(1)
@@ -23,14 +22,12 @@ export function useAdminPhotos() {
       hasMore.value = true
     }
 
-    if (loading.value || !hasMore.value) return
+    if (loading.value || !hasMore.value)
+      return
 
     loading.value = true
     try {
-      const res = await http.get<{ photos: PhotoItem[], pagination: { total: number } }>('/photos', {
-        page: page.value,
-        limit: pageSize,
-      })
+      const res = await adminPhotoApi.getPhotos(page.value, pageSize)
 
       const newPhotos = res.data?.photos || []
       if (reset) {
@@ -57,7 +54,7 @@ export function useAdminPhotos() {
 
   async function deletePhoto(photoId: string): Promise<boolean> {
     try {
-      await http.delete(`/photos/${photoId}`)
+      await adminPhotoApi.deletePhoto(photoId)
       photos.value = photos.value.filter(p => p._id !== photoId)
       total.value = Math.max(0, total.value - 1)
       return true
@@ -70,7 +67,7 @@ export function useAdminPhotos() {
 
   async function batchDeletePhotos(photoIds: string[]): Promise<boolean> {
     try {
-      await http.post('/photos/batch-delete', { ids: photoIds })
+      await adminPhotoApi.batchDeletePhotos(photoIds)
       photos.value = photos.value.filter(p => !photoIds.includes(p._id))
       total.value = Math.max(0, total.value - photoIds.length)
       return true
@@ -83,7 +80,7 @@ export function useAdminPhotos() {
 
   async function updatePhotoVisibility(photoId: string, visibility: string): Promise<boolean> {
     try {
-      await http.put(`/photos/${photoId}`, { visibility })
+      await adminPhotoApi.updatePhoto(photoId, { visibility })
       const index = photos.value.findIndex(p => p._id === photoId)
       if (index > -1) {
         photos.value[index] = { ...photos.value[index], visibility }
@@ -130,10 +127,26 @@ export function useAdminUpload() {
       sizeType: ['original'],
       sourceType: ['album', 'camera'],
       success: (res) => {
-        const files = res.tempFiles.map(file => ({
-          path: file.path,
-          name: file.path.split('/').pop() || 'photo.jpg',
-        }))
+        const tempFiles = Array.isArray(res.tempFiles) ? res.tempFiles : [res.tempFiles]
+        const files = tempFiles
+          .map((file) => {
+            const rawPath = 'path' in file
+              ? file.path
+              : 'tempFilePath' in file
+                ? file.tempFilePath
+                : ''
+            const path = typeof rawPath === 'string' ? rawPath : ''
+
+            if (!path)
+              return null
+
+            return {
+              path,
+              name: path.split('/').pop() || 'photo.jpg',
+            }
+          })
+          .filter((file): file is { path: string, name: string } => file !== null)
+
         uploadQueueStore.enqueueFiles(files)
       },
       fail: (err) => {
@@ -149,7 +162,7 @@ export function useAdminUpload() {
   }
 
   function clearCompletedUploads(): void {
-    uploadQueueStore.clearCompleted()
+    uploadQueueStore.clearCompletedFiles()
   }
 
   return {

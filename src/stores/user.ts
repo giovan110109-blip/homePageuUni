@@ -27,7 +27,8 @@ export const useUserStore = defineStore('user', () => {
   }
 
   async function wechatLogin() {
-    if (isLoggingIn.value) return false
+    if (isLoggingIn.value)
+      return false
     isLoggingIn.value = true
 
     try {

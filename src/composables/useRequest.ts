@@ -1,12 +1,13 @@
+import type { RequestAbortSignal, ResponseData } from '@/utils/request'
 import { onUnmounted, ref } from 'vue'
-import http, { AbortController } from '@/utils/request'
+import http, { RequestAbortController } from '@/utils/request'
 
 export function useRequest() {
-  const abortControllers = ref<Map<string, AbortController>>(new Map())
+  const abortControllers = ref<Map<string, RequestAbortController>>(new Map())
   const loading = ref(false)
 
-  function createAbortController(key: string): AbortController {
-    const controller = new AbortController()
+  function createAbortController(key: string): RequestAbortController {
+    const controller = new RequestAbortController()
     abortControllers.value.set(key, controller)
     return controller
   }
@@ -29,10 +30,10 @@ export function useRequest() {
   async function request<T>(
     key: string,
     options: Parameters<typeof http.request>[0],
-  ): Promise<T> {
+  ): Promise<ResponseData<T>> {
     abort(key)
     const controller = createAbortController(key)
-    
+
     loading.value = true
     try {
       const result = await http.request<T>({
@@ -61,10 +62,10 @@ export function useRequest() {
 }
 
 export function useAbortController() {
-  const controllers = ref<Map<string, AbortController>>(new Map())
+  const controllers = ref<Map<string, RequestAbortController>>(new Map())
 
-  function create(key: string): AbortController {
-    const controller = new AbortController()
+  function create(key: string): RequestAbortController {
+    const controller = new RequestAbortController()
     controllers.value.set(key, controller)
     return controller
   }
@@ -84,8 +85,8 @@ export function useAbortController() {
     controllers.value.clear()
   }
 
-  function getSignal(key: string): AbortSignal | undefined {
-    return controllers.value.get(key) as any
+  function getSignal(key: string): RequestAbortSignal | undefined {
+    return controllers.value.get(key)
   }
 
   onUnmounted(() => {

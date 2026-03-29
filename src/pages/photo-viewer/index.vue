@@ -5,7 +5,8 @@ import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
 import { photoApi } from '@/api'
 import LiveBadge from '@/components/photo/LiveBadge.vue'
 import PhotoShareGenerator from '@/components/photo/PhotoShareGenerator.vue'
-import { formatFileSize, formatYearMonth } from '@/utils/format'
+import { useLivePhoto } from '@/composables/usePhoto'
+import { formatYearMonth } from '@/utils/format'
 
 const photos = ref<PhotoItem[]>([])
 const currentIndex = ref(0)
@@ -31,14 +32,23 @@ const downloadedImages = ref<Record<string, string>>({})
 const downloadingProgress = ref<Record<string, { loaded: number, total: number }>>({})
 const downloadTasks = ref<Record<string, UniApp.DownloadTask>>({})
 
-const currentDownloadProgress = computed(() => {
+const currentDownloadPercent = computed(() => {
   const photoId = currentPhoto.value?._id
   if (!photoId)
     return null
   const progress = downloadingProgress.value[photoId]
   if (!progress)
     return null
-  return `${formatFileSize(progress.loaded)} / ${formatFileSize(progress.total)}`
+  if (!progress.total)
+    return 0
+
+  return Math.min(100, Math.max(0, Math.round((progress.loaded / progress.total) * 100)))
+})
+
+const currentDownloadProgress = computed(() => {
+  if (currentDownloadPercent.value === null)
+    return null
+  return `${currentDownloadPercent.value}%`
 })
 
 const isDownloading = computed(() => {
@@ -67,18 +77,42 @@ const containerHeight = computed(() => {
 const videoId = computed(() => `live-video-${currentIndex.value}-${currentPhoto.value?._id || ''}`)
 
 const isPlaying = ref(false)
-const videoCanPlay = ref(false)
 const isMuted = ref(true)
-const videoContext = ref<UniApp.VideoContext | null>(null)
-const localVideoPath = ref('')
-const isVideoDownloading = ref(false)
 const showVideo = ref(false)
 const showShareGenerator = ref(false)
 const showLongPressMenu = ref(false)
 
+const {
+  localVideoPath,
+  isVideoDownloading,
+  videoCanPlay,
+  videoLoadError,
+  preloadVideo,
+  handlePlaybackError,
+  resetVideo,
+} = useLivePhoto()
+
 const shareTitle = 'Giovan｜把喜欢的瞬间分享给你'
 
-const shareImageUrl = computed(() => currentPhoto.value?.thumbnailUrl || currentPhoto.value?.originalFileUrl || '')
+function getWebpUrl(url?: string) {
+  if (!url)
+    return ''
+
+  if (url.toLowerCase().endsWith('.webp')) {
+    return url
+  }
+
+  const lastDot = url.lastIndexOf('.')
+  if (lastDot > 0) {
+    return `${url.substring(0, lastDot)}.webp`
+  }
+
+  return `${url}.webp`
+}
+
+const shareImageUrl = computed(() => {
+  return getWebpUrl(currentPhoto.value?.originalUrl || currentPhoto.value?.originalFileUrl)
+})
 
 const sharePath = computed(() => {
   const photoId = currentPhoto.value?._id
@@ -100,51 +134,22 @@ function getOptimizedImageUrl(photo: PhotoItem) {
   return photo.originalFileUrl
 }
 
-function getCacheKey() {
-  return `live_video_${currentPhoto.value?._id || ''}`
-}
-
-async function preloadVideo() {
-  if (!currentPhoto.value?.videoUrl || localVideoPath.value || isVideoDownloading.value)
-    return
-
-  const cacheKey = getCacheKey()
-  const cachedPath = uni.getStorageSync(cacheKey)
-  if (cachedPath) {
-    console.error('[PhotoViewer] 使用缓存视频:', cachedPath)
-    localVideoPath.value = cachedPath
-    videoCanPlay.value = true
-    return
+const currentLivePhotoSource = computed(() => {
+  if (!currentPhoto.value?.isLive || !currentPhoto.value.videoUrl) {
+    return null
   }
 
-  console.error('[PhotoViewer] 开始下载视频:', currentPhoto.value.videoUrl)
-  isVideoDownloading.value = true
+  return {
+    _id: currentPhoto.value._id,
+    videoUrl: currentPhoto.value.videoUrl,
+  }
+})
 
-  uni.downloadFile({
-    url: currentPhoto.value.videoUrl,
-    success: async (res) => {
-      if (res.statusCode === 200) {
-        console.error('[PhotoViewer] 视频下载完成:', res.tempFilePath)
-        try {
-          const saveRes = await uni.saveFile({ tempFilePath: res.tempFilePath })
-          localVideoPath.value = saveRes.savedFilePath
-          uni.setStorageSync(cacheKey, saveRes.savedFilePath)
-          console.error('[PhotoViewer] 视频已保存:', saveRes.savedFilePath)
-        }
-        catch {
-          localVideoPath.value = res.tempFilePath
-        }
-        videoCanPlay.value = true
-        console.error('[PhotoViewer] videoCanPlay 设置为 true')
-      }
-    },
-    fail: (err) => {
-      console.error('[PhotoViewer] 视频下载失败:', err)
-    },
-    complete: () => {
-      isVideoDownloading.value = false
-    },
-  })
+function preloadCurrentVideo(force = false) {
+  if (!currentLivePhotoSource.value)
+    return
+
+  preloadVideo(currentLivePhotoSource.value, { force })
 }
 
 function downloadImage(index: number) {
@@ -201,35 +206,32 @@ function handleTouchEnd() {
   if (isPlaying.value) {
     isPlaying.value = false
     showVideo.value = false
-    videoContext.value = null
   }
 }
 
 function handleLongPress() {
-  console.error('[PhotoViewer] handleLongPress', {
-    isLive: currentPhoto.value?.isLive,
-    videoUrl: currentPhoto.value?.videoUrl,
-    videoCanPlay: videoCanPlay.value,
-    localVideoPath: localVideoPath.value,
-    currentImagePath: currentImagePath.value,
-  })
+  if (currentPhoto.value?.isLive && currentPhoto.value.videoUrl) {
+    if (!videoCanPlay.value) {
+      if (!isVideoDownloading.value) {
+        preloadCurrentVideo(!!videoLoadError.value)
+      }
+      uni.showToast({ title: isVideoDownloading.value ? '实况加载中' : '正在加载实况', icon: 'none' })
+      return
+    }
 
-  if (currentPhoto.value?.isLive && currentPhoto.value.videoUrl && videoCanPlay.value) {
     if (!currentImagePath.value) {
-      console.error('[PhotoViewer] 图片还未加载完成')
       uni.showToast({ title: '图片加载中', icon: 'none' })
       return
     }
 
-    console.error('[PhotoViewer] 开始播放视频')
     isPlaying.value = true
     showVideo.value = false
     uni.vibrateShort({ success: () => {}, fail: () => {} })
+    return
   }
-  else {
-    showLongPressMenu.value = true
-    uni.vibrateShort({ success: () => {}, fail: () => {} })
-  }
+
+  showLongPressMenu.value = true
+  uni.vibrateShort({ success: () => {}, fail: () => {} })
 }
 
 function onVideoPlay() {
@@ -241,8 +243,10 @@ function onVideoEnded() {
   showVideo.value = false
 }
 
-function onVideoError(e: any) {
-  console.error('[PhotoViewer] 视频播放错误:', e)
+function onVideoError() {
+  if (currentLivePhotoSource.value) {
+    void handlePlaybackError(currentLivePhotoSource.value)
+  }
   isPlaying.value = false
   showVideo.value = false
 }
@@ -260,7 +264,7 @@ async function loadSharedPhoto(photoId: string) {
       await nextTick()
       downloadImage(0)
       if (res.data.isLive && res.data.videoUrl) {
-        preloadVideo()
+        preloadCurrentVideo()
       }
     }
   }
@@ -303,7 +307,7 @@ onLoad((options) => {
   nextTick(() => {
     downloadImage(currentIndex.value)
     if (currentPhoto.value?.isLive && currentPhoto.value.videoUrl) {
-      preloadVideo()
+      preloadCurrentVideo()
     }
   })
 })
@@ -324,21 +328,18 @@ watch(currentIndex, (newIndex, oldIndex) => {
 
     isPlaying.value = false
     showVideo.value = false
-    videoContext.value?.pause()
-    videoContext.value = null
-    localVideoPath.value = ''
-    videoCanPlay.value = false
+    resetVideo()
 
     downloadImage(newIndex)
 
     if (currentPhoto.value?.isLive && currentPhoto.value.videoUrl) {
-      preloadVideo()
+      preloadCurrentVideo()
     }
   }
 })
 
 onUnmounted(() => {
-  videoContext.value?.pause()
+  resetVideo()
   // 取消所有下载
   Object.values(downloadTasks.value).forEach(task => task?.abort())
 })
@@ -573,18 +574,25 @@ onShareTimeline(() => {
                 </view>
 
                 <view
-                  v-if="isDownloading && currentDownloadProgress"
-                  flex
-                  items-center
-                  gap-2
+                  v-if="isDownloading && currentDownloadPercent !== null"
+                  class="download-progress-card"
                 >
-                  <text
-                    text-white
-                    text-sm
-                    font-medium
-                  >
-                    {{ currentDownloadProgress }}
-                  </text>
+                  <view class="download-progress-head">
+                    <text class="download-progress-label">
+                      图片加载中
+                    </text>
+                    <text class="download-progress-value">
+                      {{ currentDownloadProgress }}
+                    </text>
+                  </view>
+                  <view class="download-progress-track">
+                    <view
+                      class="download-progress-fill"
+                      :style="{ width: `${currentDownloadPercent}%` }"
+                    >
+                      <view class="download-progress-glow" />
+                    </view>
+                  </view>
                 </view>
               </view>
             </view>
@@ -604,7 +612,7 @@ onShareTimeline(() => {
             />
 
             <view
-              v-if="isDownloading && currentDownloadProgress"
+              v-if="isDownloading && currentDownloadPercent !== null"
               class="photo-controls"
               absolute
               bottom-0
@@ -618,13 +626,24 @@ onShareTimeline(() => {
                 items-center
                 justify-end
               >
-                <text
-                  text-white
-                  text-sm
-                  font-medium
-                >
-                  {{ currentDownloadProgress }}
-                </text>
+                <view class="download-progress-card">
+                  <view class="download-progress-head">
+                    <text class="download-progress-label">
+                      图片加载中
+                    </text>
+                    <text class="download-progress-value">
+                      {{ currentDownloadProgress }}
+                    </text>
+                  </view>
+                  <view class="download-progress-track">
+                    <view
+                      class="download-progress-fill"
+                      :style="{ width: `${currentDownloadPercent}%` }"
+                    >
+                      <view class="download-progress-glow" />
+                    </view>
+                  </view>
+                </view>
               </view>
             </view>
           </view>
@@ -659,102 +678,72 @@ onShareTimeline(() => {
       px-4
       py-3
       :style="{
-        background: 'linear-gradient(0deg, rgba(0,0,0,0.6) 0%, transparent 100%)',
+        background: 'linear-gradient(0deg, rgba(0,0,0,0.66) 0%, rgba(0,0,0,0.18) 58%, transparent 100%)',
         paddingBottom: 'env(safe-area-inset-bottom, 12px)',
       }"
     >
-      <view
-        v-if="currentPhoto.title"
-        mb-1
-        overflow-hidden
-      >
-        <text
-          text-white
-          text-base
-          font-medium
-          class="truncate-1"
-        >
-          {{ currentPhoto.title }}
-        </text>
-      </view>
-
-      <view
-        v-if="currentPhoto.description"
-        mb-2
-        overflow-hidden
-      >
-        <text
-          text-white
-          text-sm
-          class="opacity-80 truncate-2"
-        >
-          {{ currentPhoto.description }}
-        </text>
-      </view>
-
-      <view
-        flex
-        items-center
-        gap-3
-        text-white
-        text-xs
-        class="opacity-70"
-        overflow-hidden
-      >
+      <view class="footer-content">
         <view
-          v-if="formattedDate"
-          flex
-          items-center
-          gap-1
-          flex-shrink-0
+          v-if="currentPhoto.title"
+          class="footer-title-wrap"
         >
-          <view i-tabler-calendar />
-          <text class="truncate">
-            {{ formattedDate }}
+          <text class="footer-title">
+            {{ currentPhoto.title }}
           </text>
         </view>
 
         <view
-          v-if="locationText"
-          flex
-          items-center
-          gap-1
-          flex-1
-          overflow-hidden
+          v-if="currentPhoto.description"
+          class="footer-description-wrap"
+        >
+          <text class="footer-description">
+            {{ currentPhoto.description }}
+          </text>
+        </view>
+
+        <view
+          v-if="formattedDate || locationText"
+          class="footer-meta-list"
         >
           <view
-            i-tabler-map-pin
-            flex-shrink-0
-          />
-          <text class="truncate">
-            {{ locationText }}
+            v-if="formattedDate"
+            class="footer-meta-pill"
+          >
+            <view i-tabler-calendar class="footer-meta-glyph" />
+            <text class="footer-meta-text">
+              {{ formattedDate }}
+            </text>
+          </view>
+
+          <view
+            v-if="locationText"
+            class="footer-meta-pill footer-meta-pill-wide"
+          >
+            <view i-tabler-map-pin class="footer-meta-glyph" />
+            <text class="footer-meta-text truncate">
+              {{ locationText }}
+            </text>
+          </view>
+        </view>
+
+        <view
+          v-if="currentPhoto.tags?.length"
+          class="footer-tags"
+        >
+          <text
+            v-for="tag in currentPhoto.tags.slice(0, 5)"
+            :key="tag"
+            class="footer-tag"
+          >
+            {{ `#${tag}` }}
+          </text>
+          <text
+            v-if="currentPhoto.tags.length > 5"
+            class="footer-tag footer-tag-more"
+          >
+            +{{ currentPhoto.tags.length - 5 }}
           </text>
         </view>
-      </view>
-
-      <view
-        v-if="currentPhoto.tags?.length"
-        flex
-        flex-wrap
-        gap-2
-        mt-2
-        overflow-hidden
-      >
-        <text
-          v-for="tag in currentPhoto.tags.slice(0, 5)"
-          :key="tag"
-          class="px-2 py-0.5 rounded-full text-xs text-white bg-white/20"
-        >
-          {{ `#${tag}` }}
-        </text>
-        <text
-          v-if="currentPhoto.tags.length > 5"
-          text-white
-          text-xs
-          class="opacity-70"
-        >
-          +{{ currentPhoto.tags.length - 5 }}
-        </text>
       </view>
     </view>
 
@@ -869,6 +858,159 @@ onShareTimeline(() => {
   z-index: 10;
 }
 
+.footer-content {
+  display: flex;
+  flex-direction: column;
+  gap: 10rpx;
+}
+
+.footer-title-wrap {
+  max-width: 92%;
+}
+
+.footer-title {
+  color: rgba(255, 255, 255, 0.98);
+  font-size: 36rpx;
+  font-weight: 600;
+  line-height: 1.28;
+  letter-spacing: 0.2rpx;
+  display: -webkit-box;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-clamp: 2;
+}
+
+.footer-description-wrap {
+  max-width: 96%;
+}
+
+.footer-description {
+  color: rgba(255, 255, 255, 0.74);
+  font-size: 25rpx;
+  line-height: 1.55;
+  display: -webkit-box;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-clamp: 2;
+}
+
+.footer-meta-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18rpx;
+  margin-top: 4rpx;
+}
+
+.footer-meta-pill {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.footer-meta-pill-wide {
+  flex: 1;
+}
+
+.footer-meta-glyph {
+  flex-shrink: 0;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 24rpx;
+}
+
+.footer-meta-text {
+  min-width: 0;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 23rpx;
+  line-height: 1.4;
+}
+
+.footer-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10rpx;
+  margin-top: 6rpx;
+}
+
+.footer-tag {
+  padding: 8rpx 16rpx;
+  border-radius: 999rpx;
+  color: rgba(255, 255, 255, 0.76);
+  font-size: 21rpx;
+  line-height: 1;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.footer-tag-more {
+  color: rgba(255, 255, 255, 0.58);
+  background: transparent;
+}
+
+.download-progress-card {
+  min-width: 240rpx;
+  max-width: 320rpx;
+  padding: 18rpx 20rpx 16rpx;
+  border-radius: 24rpx;
+  background: rgba(12, 17, 28, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(20px);
+  box-shadow: 0 12rpx 36rpx rgba(0, 0, 0, 0.18);
+}
+
+.download-progress-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+  margin-bottom: 12rpx;
+}
+
+.download-progress-label {
+  color: rgba(255, 255, 255, 0.76);
+  font-size: 22rpx;
+  line-height: 1;
+}
+
+.download-progress-value {
+  color: #fff;
+  font-size: 24rpx;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.download-progress-track {
+  position: relative;
+  width: 100%;
+  height: 10rpx;
+  overflow: hidden;
+  border-radius: 999rpx;
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.download-progress-fill {
+  position: relative;
+  height: 100%;
+  min-width: 12rpx;
+  border-radius: 999rpx;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.48) 0%, #fff 100%);
+  transition: width 0.24s ease-out;
+}
+
+.download-progress-glow {
+  position: absolute;
+  top: 0;
+  right: -28rpx;
+  width: 56rpx;
+  height: 100%;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.9) 100%);
+  animation: progress-glow 1.2s linear infinite;
+}
+
 .live-video {
   position: absolute;
   top: 0;
@@ -953,5 +1095,19 @@ onShareTimeline(() => {
   margin-top: 8px;
   border-bottom: none;
   color: #999;
+}
+
+@keyframes progress-glow {
+  0% {
+    transform: translateX(-24rpx);
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(24rpx);
+    opacity: 0.25;
+  }
 }
 </style>

@@ -10,7 +10,7 @@ import Loading from '@/components/Loading.vue'
 import { useScrollStore } from '@/stores/scroll'
 import { useThemeStore } from '@/stores/theme'
 import { getAvatarSrc, getInitial } from '@/utils/avatar'
-import { formatDateShort, formatRelativeTime } from '@/utils/format'
+import { formatRelativeTime } from '@/utils/format'
 import { logger } from '@/utils/logger'
 
 const themeStore = useThemeStore()
@@ -63,6 +63,11 @@ function getNoteStyle(index: number): string {
   }
   const colors = map[index % 5]
   return isDark ? colors.dark : colors.light
+}
+
+function formatClientInfo(message: MessageItem): string {
+  const parts = [message.os, message.browser, message.deviceType].filter(Boolean)
+  return parts.join(' · ')
 }
 
 const emoteCache = new Map<string, any[]>()
@@ -241,8 +246,9 @@ onReachBottom(() => {
             boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)',
           }"
         >
-          <view flex items-start gap-3>
+          <view class="message-card-head">
             <view
+              class="message-avatar"
               w-10
               h-10
               rounded-full
@@ -267,8 +273,8 @@ onReachBottom(() => {
                 {{ getInitial(msg.name) }}
               </text>
             </view>
-            <view flex-1>
-              <view flex items-center gap-2 mb-1>
+            <view class="message-card-main">
+              <view class="message-title-row">
                 <text text-base font-semibold :style="{ color: themeStore.colors.textPrimary }">
                   {{ msg.name }}
                 </text>
@@ -277,20 +283,20 @@ onReachBottom(() => {
                 </text>
               </view>
               <view
+                class="message-content"
                 block
                 text-sm
                 leading-relaxed
-                mb-2
                 :style="{ color: themeStore.colors.textSecondary }"
               >
-                <template v-for="(item, index) in parseEmote(msg.content)" :key="index">
+                <template v-for="(item, contentIndex) in parseEmote(msg.content)" :key="contentIndex">
                   <text v-if="item.type === 'text'">{{ item.content }}</text>
                   <EmoteImage v-else-if="item.type === 'emote'" :url="item.url" />
                 </template>
               </view>
               <view flex items-center gap-2 flex-wrap>
                 <view
-                  v-if="msg.os || msg.browser"
+                  v-if="msg.os || msg.browser || msg.deviceType"
                   flex
                   items-center
                   gap-1
@@ -300,7 +306,7 @@ onReachBottom(() => {
                   :style="{ backgroundColor: themeStore.colors.bgPrimary }"
                 >
                   <text text-xs :style="{ color: themeStore.colors.textTertiary }">
-                    {{ msg.os || '' }}{{ msg.os && msg.browser ? ' · ' : '' }}{{ msg.browser || '' }}
+                    {{ formatClientInfo(msg) }}
                   </text>
                 </view>
                 <view
@@ -314,7 +320,7 @@ onReachBottom(() => {
                   :style="{ backgroundColor: themeStore.colors.bgPrimary }"
                 >
                   <text text-xs :style="{ color: themeStore.colors.textTertiary }">
-                    {{ formatLocation(msg.location) }}
+                    来源：{{ formatLocation(msg.location) }}
                   </text>
                 </view>
               </view>
@@ -387,7 +393,7 @@ onReachBottom(() => {
                     </text>
                   </view>
                   <view text-xs leading-relaxed :style="{ color: themeStore.colors.textSecondary }">
-                    <template v-for="(item, index) in parseEmote(comment.content)" :key="index">
+                    <template v-for="(item, contentIndex) in parseEmote(comment.content)" :key="contentIndex">
                       <text v-if="item.type === 'text'">{{ item.content }}</text>
                       <EmoteImage v-else-if="item.type === 'emote'" :url="item.url" />
                     </template>
@@ -411,3 +417,32 @@ onReachBottom(() => {
     <CustomTabBar />
   </view>
 </template>
+
+<style scoped>
+.message-card-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 24rpx;
+}
+
+.message-avatar {
+  flex-shrink: 0;
+}
+
+.message-card-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.message-title-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12rpx;
+  margin-bottom: 12rpx;
+}
+
+.message-content {
+  margin-bottom: 14rpx;
+}
+</style>

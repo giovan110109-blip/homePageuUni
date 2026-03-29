@@ -6,7 +6,7 @@ export interface ApiConfig {
   headers?: Record<string, string>
 }
 
-const env = process.env.NODE_ENV || 'development'
+const env = import.meta.env.MODE || 'development'
 
 const config: ApiConfig = {
   baseURL: envConfig[env as keyof typeof envConfig]?.baseURL || '',

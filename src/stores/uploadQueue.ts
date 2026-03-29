@@ -1,9 +1,8 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
-import http from '@/utils/request'
 import { logger } from '@/utils/logger'
+import http from '@/utils/request'
 import { wsService } from '@/utils/websocket'
-import type { TaskInfo, UploadTaskStats } from '@/types/common'
 
 export interface UploadingFile {
   id: string
@@ -81,15 +80,18 @@ export const useUploadQueueStore = defineStore('uploadQueue', () => {
   const uploadingCount = computed(() => uploadingFiles.value.filter(f => f.status === 'uploading').length)
 
   async function startWs() {
-    if (wsUnsub.value) return
+    if (wsUnsub.value)
+      return
     const token = uni.getStorageSync('token')
-    if (!token) return
+    if (!token)
+      return
 
     try {
       await wsService.connect()
       wsUnsub.value = wsService.subscribe(token, (data: any) => {
         const f = uploadingFiles.value.find(x => x.taskId === data.taskId)
-        if (!f) return
+        if (!f)
+          return
         f.status = data.status === 'completed' ? 'completed' : data.status === 'failed' ? 'error' : 'processing'
         f.stage = data.stage
         f.progress = Math.max(f.progress, data.progress || 0)
@@ -99,16 +101,19 @@ export const useUploadQueueStore = defineStore('uploadQueue', () => {
           loadTaskStats()
           setTimeout(() => {
             const i = uploadingFiles.value.findIndex(x => x.id === f.id)
-            if (i > -1) uploadingFiles.value.splice(i, 1)
+            if (i > -1)
+              uploadingFiles.value.splice(i, 1)
           }, 2000)
-        } else if (data.status === 'failed') {
+        }
+        else if (data.status === 'failed') {
           f.error = '处理失败'
           f.createdTime = Date.now()
           loadFailedTasks()
           loadTaskStats()
         }
       })
-    } catch (e) {
+    }
+    catch (e) {
       console.error('[WS] Error:', e)
     }
   }

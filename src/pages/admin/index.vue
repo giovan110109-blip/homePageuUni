@@ -2,10 +2,10 @@
 import { onLoad } from '@dcloudio/uni-app'
 import { storeToRefs } from 'pinia'
 import { onMounted, reactive, ref, watch } from 'vue'
+import { adminPhotoApi } from '@/api'
 import { useUploadQueueStore } from '@/stores/uploadQueue'
 import { useUserStore } from '@/stores/user'
 import { formatDate, formatFileSize } from '@/utils/format'
-import http from '@/utils/request'
 
 const userStore = useUserStore()
 const uploadQueueStore = useUploadQueueStore()
@@ -145,10 +145,7 @@ function handleClearCache() {
 async function loadPhotos() {
   photoLoading.value = true
   try {
-    const res = await http.get<{ photos: any[], pagination: { total: number } }>('/photos', {
-      page: photoPagination.page,
-      limit: photoPagination.pageSize,
-    })
+    const res = await adminPhotoApi.getPhotos(photoPagination.page, photoPagination.pageSize)
     if (res.data) {
       photoTableData.value = res.data.photos || []
       photoPagination.total = res.data.pagination?.total || 0
@@ -169,7 +166,7 @@ async function deletePhoto(row: any) {
     success: async (res) => {
       if (res.confirm) {
         try {
-          await http.delete(`/photos/${row._id}`)
+          await adminPhotoApi.deletePhoto(row._id)
           uni.showToast({ title: '删除成功', icon: 'success' })
           await loadPhotos()
         }
@@ -195,7 +192,7 @@ async function batchDeletePhotos() {
         uni.showLoading({ title: '删除中...' })
         try {
           const ids = selectedPhotos.value.map(photo => photo._id)
-          await http.post('/photos/batch-delete', { ids })
+          await adminPhotoApi.batchDeletePhotos(ids)
           uni.hideLoading()
           uni.showToast({ title: `成功删除 ${selectedPhotos.value.length} 张图片`, icon: 'success' })
           selectedPhotos.value = []
@@ -212,7 +209,7 @@ async function batchDeletePhotos() {
 
 async function setVisibility(row: any, visibility: string) {
   try {
-    await http.put(`/photos/${row._id}`, { visibility })
+    await adminPhotoApi.updatePhoto(row._id, { visibility })
     uni.showToast({ title: '更新成功', icon: 'success' })
     await loadPhotos()
   }
@@ -230,18 +227,10 @@ async function handleChooseLocation(photo: any) {
       })
     })
 
-    const locationData = {
-      location: {
-        latitude: res.latitude,
-        longitude: res.longitude,
-      },
-      geoinfo: {
-        locationName: res.name,
-        formatted: res.address || res.name,
-      },
-    }
-
-    await http.put(`/photos/${photo._id}/location`, locationData)
+    await adminPhotoApi.updatePhotoLocation(photo._id, {
+      latitude: res.latitude,
+      longitude: res.longitude,
+    })
     uni.showToast({ title: '位置已更新', icon: 'success' })
     await loadPhotos()
   }

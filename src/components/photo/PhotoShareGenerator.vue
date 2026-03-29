@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { PhotoItem } from '@/api'
-import { computed, getCurrentInstance, nextTick, ref, watch } from 'vue'
+import { getCurrentInstance, nextTick, ref, watch } from 'vue'
 import Loading from '@/components/Loading.vue'
 
 interface Props {

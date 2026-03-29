@@ -1,5 +1,5 @@
+import type { AlbumInfo, FailedTasksResponse, UploadTaskStats } from '@/types/common'
 import http from '@/utils/request'
-import type { AlbumInfo, TaskInfo, UploadTaskStats, FailedTasksResponse } from '@/types/common'
 
 export interface SocialLink {
   platform: string
@@ -101,6 +101,7 @@ export interface PhotoItem {
   _id: string
   title?: string
   description?: string
+  visibility?: 'public' | 'private' | string
   originalFileName: string
   storageKey: string
   width: number
@@ -210,22 +211,22 @@ export const authApi = {
 
 export const adminPhotoApi = {
   getPhotos: (page: number = 1, limit: number = 20) => {
-    return http.get<{ photos: PhotoItem[], pagination: { total: number, page: number, limit: number, pages: number } }>('/photos', { page, limit })
+    return http.get<{ photos: PhotoItem[], pagination: { total: number, page: number, limit: number, pages: number } }>('/admin/photos', { page, limit })
   },
   deletePhoto: (id: string) => {
-    return http.delete<void>(`/photos/${id}`)
+    return http.delete<void>(`/admin/photos/${id}`)
   },
   batchDeletePhotos: (ids: string[]) => {
-    return http.post<void>('/photos/batch-delete', { ids })
+    return http.post<void>('/admin/photos/batch-delete', { ids })
   },
   updatePhoto: (id: string, data: { title?: string, visibility?: string }) => {
-    return http.put<PhotoItem>(`/photos/${id}`, data)
+    return http.put<PhotoItem>(`/admin/photos/${id}`, data)
   },
   updatePhotoLocation: (id: string, data: {
-    location?: { latitude: number, longitude: number }
-    geoinfo?: { country?: string, region?: string, city?: string, locationName?: string, formatted?: string }
+    latitude: number
+    longitude: number
   }) => {
-    return http.put<PhotoItem>(`/photos/${id}/location`, data)
+    return http.post<PhotoItem>(`/admin/photos/${id}/location`, data)
   },
   getAlbums: (page: number = 1, pageSize: number = 10) => {
     return http.get<AlbumInfo[]>('/admin/albums', { page, pageSize })

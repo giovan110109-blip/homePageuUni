@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, getCurrentInstance, onMounted, onUnmounted, ref, watch } from 'vue'
+import { useLivePhoto } from '@/composables/usePhoto'
 import LiveBadge from './LiveBadge.vue'
 import PhotoViewer from './photoViewer.vue'
 
@@ -28,77 +29,84 @@ const emit = defineEmits<{
   click: [event: MouseEvent]
 }>()
 
-const videoId = computed(() => `live-video-${props.photoId || Date.now()}`)
+const fallbackVideoId = `live-video-${Math.random().toString(36).slice(2, 10)}`
+const videoId = computed(() => `live-video-${props.photoId || fallbackVideoId}`)
 
 const wrapperStyle = computed(() => {
   const paddingBottom = (1 / props.aspectRatio) * 100
   return `padding-bottom: ${paddingBottom}%`
 })
 
+const instance = getCurrentInstance()
 const isPlaying = ref(false)
-const videoCanPlay = ref(false)
 const isMuted = ref(true)
-const videoContext = ref<UniApp.VideoContext | null>(null)
-const localVideoPath = ref('')
-const isDownloading = ref(false)
 const showVideo = ref(false)
+const isVisible = ref(false)
 
-function getCacheKey() {
-  return `live_video_${props.photoId || ''}`
+const {
+  localVideoPath,
+  isVideoDownloading: isDownloading,
+  videoCanPlay,
+  videoLoadError,
+  preloadVideo,
+  handlePlaybackError,
+  resetVideo,
+} = useLivePhoto()
+
+let intersectionObserver: UniApp.IntersectionObserver | null = null
+
+const livePhotoSource = computed(() => {
+  if (!props.isLive || !props.videoUrl || !props.photoId)
+    return null
+
+  return {
+    _id: props.photoId,
+    videoUrl: props.videoUrl,
+  }
+})
+
+function observeVisibility() {
+  if (!props.isLive || !props.videoUrl)
+    return
+
+  intersectionObserver = uni.createIntersectionObserver(instance?.proxy)
+  intersectionObserver.relativeToViewport({ bottom: 240 }).observe('.live-photo-wrapper', (res) => {
+    if (res.intersectionRatio <= 0)
+      return
+
+    isVisible.value = true
+    preloadCurrentVideo()
+    intersectionObserver?.disconnect()
+    intersectionObserver = null
+  })
 }
 
-async function preloadVideo() {
-  if (!props.videoUrl || localVideoPath.value || isDownloading.value)
+function preloadCurrentVideo(force = false) {
+  if (!livePhotoSource.value)
     return
 
-  const cacheKey = getCacheKey()
-  const cachedPath = uni.getStorageSync(cacheKey)
-  if (cachedPath) {
-    localVideoPath.value = cachedPath
-    videoCanPlay.value = true
+  if (!isVisible.value && !force)
     return
-  }
 
-  isDownloading.value = true
-
-  uni.downloadFile({
-    url: props.videoUrl,
-    success: async (res) => {
-      if (res.statusCode === 200) {
-        try {
-          const saveRes = await uni.saveFile({ tempFilePath: res.tempFilePath })
-          localVideoPath.value = saveRes.savedFilePath
-          uni.setStorageSync(cacheKey, saveRes.savedFilePath)
-        }
-        catch {
-          localVideoPath.value = res.tempFilePath
-        }
-        videoCanPlay.value = true
-      }
-    },
-    fail: (err) => {
-      console.error('[LivePhoto] 视频下载失败:', err)
-    },
-    complete: () => {
-      isDownloading.value = false
-    },
-  })
+  preloadVideo(livePhotoSource.value, { force })
 }
 
 function handleTouchEnd() {
   if (isPlaying.value) {
     isPlaying.value = false
     showVideo.value = false
-    videoContext.value = null
   }
 }
 
 function handleLongPress() {
-  if (!props.isLive || !props.videoUrl)
+  if (!livePhotoSource.value)
     return
 
   if (!videoCanPlay.value) {
-    uni.showToast({ title: '视频加载中', icon: 'none' })
+    if (!isDownloading.value) {
+      preloadCurrentVideo(!!videoLoadError.value)
+    }
+    uni.showToast({ title: isDownloading.value ? '实况加载中' : '正在加载实况', icon: 'none' })
     return
   }
 
@@ -117,8 +125,10 @@ function onVideoEnded() {
   showVideo.value = false
 }
 
-function onVideoError(e: any) {
-  console.error('[LivePhoto] 视频播放错误:', e)
+function onVideoError() {
+  if (livePhotoSource.value) {
+    void handlePlaybackError(livePhotoSource.value)
+  }
   isPlaying.value = false
   showVideo.value = false
 }
@@ -136,25 +146,26 @@ function toggleMute() {
 }
 
 watch(
-  () => props.videoUrl,
-  (newUrl) => {
-    if (newUrl && props.isLive) {
-      localVideoPath.value = ''
-      videoCanPlay.value = false
-      preloadVideo()
+  () => [props.photoId, props.videoUrl, props.isLive],
+  () => {
+    resetVideo()
+    isPlaying.value = false
+    showVideo.value = false
+
+    if (isVisible.value) {
+      preloadCurrentVideo()
     }
   },
   { immediate: true },
 )
 
 onMounted(() => {
-  if (props.isLive && props.videoUrl) {
-    preloadVideo()
-  }
+  observeVisibility()
 })
 
 onUnmounted(() => {
-  videoContext.value?.pause()
+  intersectionObserver?.disconnect()
+  resetVideo()
 })
 </script>
 

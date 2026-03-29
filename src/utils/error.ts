@@ -1,5 +1,3 @@
-import type { ApiError } from '@/types/common'
-
 export enum ErrorCode {
   NETWORK_ERROR = 'NETWORK_ERROR',
   SERVER_ERROR = 'SERVER_ERROR',
@@ -16,6 +14,7 @@ export interface AppError {
   data?: unknown
   statusCode?: number
   showToast?: boolean
+  originalError?: unknown
 }
 
 const ERROR_MESSAGES: Record<ErrorCode, string> = {

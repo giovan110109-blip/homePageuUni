@@ -1,4 +1,5 @@
 import config from '@/config/api'
+import { logger } from '@/utils/logger'
 
 type Handler = (data: any) => void
 
@@ -16,7 +17,7 @@ class WsService {
     const protocol = baseUrl.startsWith('https') ? 'wss' : 'ws'
     const host = baseUrl.replace(/^https?:\/\//, '').replace(/\/api$/i, '').replace(/\/$/, '')
     this.url = `${protocol}://${host}/ws`
-    console.log('[WS] URL:', this.url)
+    logger.debug('[WS] URL:', this.url)
   }
 
   connect(): Promise<void> {
@@ -25,16 +26,16 @@ class WsService {
     }
 
     this.manualClose = false
-    console.log('[WS] 正在连接:', this.url)
+    logger.debug('[WS] 正在连接:', this.url)
 
     return new Promise((resolve, reject) => {
       this.socketTask = uni.connectSocket({
         url: this.url,
         success: () => {
-          console.log('[WS] uni.connectSocket success')
+          logger.debug('[WS] uni.connectSocket success')
         },
         fail: (err) => {
-          console.error('[WS] uni.connectSocket fail:', err)
+          logger.error('[WS] uni.connectSocket fail:', err)
           reject(err)
         },
       })
@@ -45,7 +46,7 @@ class WsService {
       }
 
       this.socketTask.onOpen(() => {
-        console.log('[WS] onOpen: 连接成功')
+        logger.debug('[WS] onOpen: 连接成功')
         this.connected = true
         this.reconnectAttempts = 0
         resolve()
@@ -54,16 +55,16 @@ class WsService {
       this.socketTask.onMessage((res) => {
         try {
           const msg = JSON.parse(res.data as string)
-          console.log('[WS] 收到消息:', msg.type, msg)
+          logger.debug('[WS] 收到消息:', msg.type, msg)
           this.handlers.get(msg.type)?.forEach(h => h(msg.data ?? msg))
         }
         catch (e) {
-          console.error('[WS] Parse error:', e)
+          logger.error('[WS] Parse error:', e)
         }
       })
 
       this.socketTask.onClose(() => {
-        console.log('[WS] onClose: 连接关闭')
+        logger.debug('[WS] onClose: 连接关闭')
         this.connected = false
         this.socketTask = null
         if (!this.manualClose) {
@@ -87,7 +88,7 @@ class WsService {
     this.reconnectAttempts++
     const delay = 1000 * this.reconnectAttempts
 
-    console.log(`[WS] 重连中... 第 ${this.reconnectAttempts} 次，延迟 ${delay}ms`)
+    logger.debug(`[WS] 重连中... 第 ${this.reconnectAttempts} 次，延迟 ${delay}ms`)
 
     setTimeout(() => {
       this.connect().catch(() => {})
@@ -96,7 +97,7 @@ class WsService {
 
   send(type: string, data?: any) {
     if (this.socketTask && this.connected) {
-      console.log('[WS] 发送消息:', type, data)
+      logger.debug('[WS] 发送消息:', type, data)
       this.socketTask.send({
         data: JSON.stringify({ type, data }),
       })
@@ -114,7 +115,7 @@ class WsService {
   }
 
   subscribe(token: string, cb: Handler) {
-    console.log('[WS] 订阅任务更新')
+    logger.debug('[WS] 订阅任务更新')
     this.send('subscribe:tasks', { token })
     return this.on('task:update', cb)
   }
